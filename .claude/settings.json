@@ -9,7 +9,6 @@
       "Read(./.env.local)",
       "Read(./.env.production.local)",
       "Read(./secrets/**)",
-      "Bash(git push *)",
       "Bash(git reset --hard *)",
       "Bash(git clean *)",
       "Bash(rm -rf *)",
