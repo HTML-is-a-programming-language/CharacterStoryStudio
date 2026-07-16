@@ -25,6 +25,9 @@ tmp/
 *.wav
 *.mp3
 
+# Mock 파이프라인이 pnpm run generate로 만들어내는 산출물 (재생성 가능, 소스 아님)
+src/data/generated-story.json
+
 # Claude Code local settings
 .claude/settings.local.json
 CLAUDE.local.md

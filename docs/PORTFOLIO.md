@@ -70,4 +70,47 @@ Phase 1 범위를 Remotion 단독으로 좁힌 이유와 샘플 스토리 선정
 
 ---
 
-<!-- Phase 2 이후 섹션은 아래에 이어서 추가됩니다 -->
+## Phase 2 — AI 스토리 생성 파이프라인 (Mock Provider)
+
+### 무엇을 했나
+
+1. **Provider 추상화**: `StoryProvider` 인터페이스(`analyzeConversation` → `generateConcepts` → `generateStoryboard`)를 정의하고, 실제 LLM 없이 규칙 기반으로 동작하는 `MockStoryProvider`를 구현했다. 나중에 실제 LLM 기반 Provider로 교체해도 호출부(스크립트/향후 UI)는 바뀌지 않는다.
+2. **원본 대화 → 분석 → 컨셉 3안 → 스토리보드**: 하람과의 14턴짜리 샘플 대화(`src/pipeline/data/sample-conversation.json`)를 만들고, 감정적으로 의미 있는 5개 메시지를 키워드 매칭으로 추출 → 서로 다른 톤(잔잔함/설렘/여운)의 컨셉 3개 생성 → 그중 하나를 골라 Phase 1과 동일한 `StoryPlan` 스키마의 5씬 스토리보드로 변환하는 전체 파이프라인을 구현했다.
+3. **추적성(traceability) 검증**: 각 씬에 `sourceMessageIds`를 붙여, 생성된 대사가 실제 원본 대화 메시지에서 왔는지 역추적할 수 있게 했다. 테스트에서 이 추적성을 실제로 검증한다.
+4. **Root.tsx를 `calculateMetadata`로 리팩터**: Phase 1에서는 `sample-story.json`으로 고정된 재생시간/해상도만 지원했는데, Phase 2에서는 `--props`로 다른 `StoryPlan`(AI가 생성한 것)을 넘겨도 재생시간·fps·해상도가 그 값 기준으로 재계산되도록 바꿨다. 덕분에 Phase 1의 고정 샘플과 Phase 2의 생성 결과가 같은 렌더링 코드를 공유한다.
+5. **CLI 스크립트 2종 추가**: `pnpm run generate`(대화 → `src/data/generated-story.json`), `pnpm run render:generated`(그 JSON을 실제 MP4로 렌더링).
+6. **QA 자동화**: `@ffprobe-installer/ffprobe`(정적 바이너리 npm 패키지)로 `pnpm run qa <mp4>`를 구현해, Phase 1에서 미뤄뒀던 해상도/재생시간 자동 검증을 시스템 설치 없이 해결했다.
+
+### 실행 결과
+
+```
+pnpm run generate         → 분석된 이벤트: 5개 / 컨셉 3개(잔잔한 하루·설레는 고백·여운이 남는 밤) 생성
+pnpm run render:generated → out/generated.mp4 (840프레임, 1.7MB)
+pnpm run qa out/story.mp4     → ✓ 1080x1920, ✓ 28.05s
+pnpm run qa out/generated.mp4 → ✓ 1080x1920, ✓ 28.05s
+pnpm run test              → 7 passed (schema 3 + pipeline 4)
+pnpm run typecheck          → 통과
+```
+
+Phase 1의 고정 스토리와 Phase 2의 AI(Mock) 생성 스토리가 우연히 아니라 설계상(둘 다 5개 이벤트, 28초 타깃) 같은 재생시간이 나왔다 — 같은 렌더링 파이프라인을 공유한다는 걸 보여주는 결과다.
+
+### 사용한 AI 도구/기능
+
+| 도구 | 용도 |
+|---|---|
+| Claude Code (직접 설계·구현) | Provider 인터페이스, Zod 스키마 확장, Mock 휴리스틱 로직, Remotion `calculateMetadata` 리팩터를 전부 직접 작성 |
+| Bash 도구(백그라운드 실행) | `pnpm run qa` 실행이 예상보다 오래 걸려 자동으로 백그라운드로 전환됐고, 완료 알림을 받아 결과를 확인 — 긴 명령을 차단 없이 처리하는 워크플로를 실제로 사용 |
+| TodoWrite | Phase 2의 11개 하위 작업을 스캐폴딩→로직→검증→문서화 순서로 추적 |
+
+### 겪은 이슈
+
+- **Mock 휴리스틱의 한계(자기 인지)**: `MockStoryProvider`의 이벤트 추출은 5개 키워드(`비, 설레, 좋아, 예쁘다, 우산`) 포함 여부로만 판단한다. 이건 로맨스 장르·한국어 구어체에 맞춰 고른 목록이라 다른 톤의 대화에는 잘 안 맞을 수 있다. 코드 주석과 이 문서에 한계로 명시해뒀고, 실제 Provider(LLM 기반)로 교체할 때 가장 먼저 손볼 부분으로 남겨둔다.
+- **QA 스크립트 실행 지연**: `pnpm run qa`가 60초 타임아웃을 넘겨 백그라운드로 전환됐다(정확한 원인은 tsx 콜드 스타트 + Windows에서의 자식 프로세스 스폰 비용으로 추정, 미확정). 실행 자체는 두 번 다 정상 종료(exit code 0)했고 결과도 정확했다 — 순수 성능 이슈였고 QA 로직의 정확성 문제는 아니었다.
+
+### 왜 이렇게 결정했나
+
+이미지 Provider를 이번 Phase에서 붙이지 않은 이유, ffprobe를 npm 패키지로 확보한 이유는 [DECISIONS.md](./DECISIONS.md) ADR-006, ADR-007 참고.
+
+---
+
+<!-- Phase 3 이후 섹션은 아래에 이어서 추가됩니다 -->

@@ -1,0 +1,89 @@
+{
+  "character": { "id": "character-haram", "name": "하람" },
+  "messages": [
+    {
+      "id": "msg-01",
+      "role": "user",
+      "content": "오늘따라 도서관이 한산하네요.",
+      "timestamp": "2026-06-02T19:01:00+09:00"
+    },
+    {
+      "id": "msg-02",
+      "role": "character",
+      "content": "비가 와서 그런가봐. 밖에 사람이 없어.",
+      "timestamp": "2026-06-02T19:02:00+09:00"
+    },
+    {
+      "id": "msg-03",
+      "role": "user",
+      "content": "책 좀 추천해주실 수 있어요?",
+      "timestamp": "2026-06-02T19:03:00+09:00"
+    },
+    {
+      "id": "msg-04",
+      "role": "character",
+      "content": "요즘 마음이 좀 복잡하다고 했었잖아. 그런 날 읽기 좋은 책이 있어.",
+      "timestamp": "2026-06-02T19:04:00+09:00"
+    },
+    {
+      "id": "msg-05",
+      "role": "user",
+      "content": "기억하고 계셨어요?",
+      "timestamp": "2026-06-02T19:05:00+09:00"
+    },
+    {
+      "id": "msg-06",
+      "role": "character",
+      "content": "당연하지. 너 얘기는 다 기억해.",
+      "timestamp": "2026-06-02T19:06:00+09:00"
+    },
+    {
+      "id": "msg-07",
+      "role": "user",
+      "content": "그런 말 들으니까 좀 설레는데요.",
+      "timestamp": "2026-06-02T19:07:00+09:00"
+    },
+    {
+      "id": "msg-08",
+      "role": "character",
+      "content": "사실 나도 그래. 예전부터 너한테 좋아한다고 말하고 싶었어.",
+      "timestamp": "2026-06-02T19:08:00+09:00"
+    },
+    {
+      "id": "msg-09",
+      "role": "user",
+      "content": "진작 말하지 그랬어요.",
+      "timestamp": "2026-06-02T19:09:00+09:00"
+    },
+    {
+      "id": "msg-10",
+      "role": "character",
+      "content": "타이밍을 못 잡았어. 오늘은 말할 수 있을 것 같아서.",
+      "timestamp": "2026-06-02T19:10:00+09:00"
+    },
+    {
+      "id": "msg-11",
+      "role": "user",
+      "content": "창밖 좀 봐요, 하늘이 맑아졌어요.",
+      "timestamp": "2026-06-02T19:11:00+09:00"
+    },
+    {
+      "id": "msg-12",
+      "role": "character",
+      "content": "그러네. 예쁘다.",
+      "timestamp": "2026-06-02T19:12:00+09:00"
+    },
+    {
+      "id": "msg-13",
+      "role": "user",
+      "content": "이 순간 오래 기억할 것 같아요.",
+      "timestamp": "2026-06-02T19:13:00+09:00"
+    },
+    {
+      "id": "msg-14",
+      "role": "character",
+      "content": "다음에 올 땐, 우산 없이 오지 마.",
+      "timestamp": "2026-06-02T19:14:00+09:00"
+    }
+  ]
+}

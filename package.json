@@ -6,6 +6,9 @@
   "scripts": {
     "studio": "remotion studio src/index.ts",
     "render": "remotion render src/index.ts StoryComposition out/story.mp4",
+    "generate": "tsx scripts/generate-story.ts",
+    "render:generated": "remotion render src/index.ts StoryComposition out/generated.mp4 --props=src/data/generated-story.json",
+    "qa": "tsx scripts/qa-check.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
@@ -17,8 +20,11 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@ffprobe-installer/ffprobe": "^2.1.2",
+    "@types/node": "^22.9.0",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
+    "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "vitest": "^2.1.4"
   }

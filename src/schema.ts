@@ -10,6 +10,8 @@ export const SceneSchema = z.object({
   speaker: z.string(),
   dialogue: z.string().min(1),
   caption: z.string().optional(),
+  /** 이 씬이 어떤 원본 대화 메시지에서 비롯됐는지 추적하기 위한 ID 목록. AI가 없는 내용을 지어내지 않았는지 검증하는 데 쓰인다. */
+  sourceMessageIds: z.array(z.string()).optional(),
 });
 
 export const StoryPlanSchema = z.object({
