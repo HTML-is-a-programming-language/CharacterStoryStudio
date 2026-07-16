@@ -1,0 +1,39 @@
+# Node / package managers
+node_modules/
+.pnpm-store/
+
+# Next.js
+.next/
+out/
+
+# Build output
+dist/
+build/
+coverage/
+
+# Env files (keep .env.example)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Generated media (rendered outputs, temp assets)
+renders/
+temp/
+tmp/
+*.mp4
+*.wav
+*.mp3
+
+# Claude Code local settings
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
