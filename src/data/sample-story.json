@@ -1,0 +1,48 @@
+{
+  "title": "책갈피",
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "scenes": [
+    {
+      "id": "scene-1",
+      "durationInFrames": 180,
+      "background": { "from": "#0f1b3d", "to": "#2b3a67" },
+      "speaker": "내레이션",
+      "dialogue": "비가 오는 저녁, 도서관에는 나 혼자였다.",
+      "caption": "비 오는 저녁 · 도서관"
+    },
+    {
+      "id": "scene-2",
+      "durationInFrames": 150,
+      "background": { "from": "#1c1533", "to": "#3b2a5c" },
+      "speaker": "나",
+      "dialogue": "찾는 책이 있는데... 어디 있는지 모르겠어요.",
+      "caption": "책장 사이"
+    },
+    {
+      "id": "scene-3",
+      "durationInFrames": 180,
+      "background": { "from": "#2a1a3d", "to": "#5b3a66" },
+      "speaker": "하람",
+      "dialogue": "이 책, 너한테 어울릴 것 같아서 먼저 빼놨어.",
+      "caption": "사서 하람"
+    },
+    {
+      "id": "scene-4",
+      "durationInFrames": 180,
+      "background": { "from": "#16233f", "to": "#3d5075" },
+      "speaker": "내레이션",
+      "dialogue": "우리는 나란히 앉아 창밖의 비를 오래도록 바라봤다.",
+      "caption": "창가에서"
+    },
+    {
+      "id": "scene-5",
+      "durationInFrames": 150,
+      "background": { "from": "#3a1f3d", "to": "#7a4a63" },
+      "speaker": "하람",
+      "dialogue": "다음에 올 땐, 우산 없이 오지 마.",
+      "caption": "책갈피"
+    }
+  ]
+}

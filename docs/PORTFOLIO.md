@@ -1,0 +1,73 @@
+# 포트폴리오 노트
+
+이 문서는 Character Story Studio를 "AI-Native하게" 어떻게 만들었는지 — 어떤 도구를 어떻게 썼고,
+어떤 문제가 생겼고, 어떤 판단을 왜 내렸는지 — 단계별로 기록합니다. 코드 자체보다 **AI 도구를 활용한
+개발 과정 자체**를 보여주는 것이 목적입니다. (지원 포지션: 타인에이아이 AI-Native Developer)
+
+각 Phase가 끝날 때마다 이 문서에 섹션을 추가합니다.
+
+---
+
+## Phase 0 — 컨셉 결합 & 기초 문서화
+
+### 무엇을 했나
+
+1. **결합 방향 리서치**: 러비더비(러비더비 앱스토어/나무위키 등 공개 정보)와 OpenMontage(GitHub 저장소)를 각각 조사해, 두 서비스의 공통 접점(대화形 콘텐츠 ↔ 승인 기반 AI 영상 파이프라인)을 찾음.
+2. **AI와의 협업으로 방향 결정**: Claude Code와 함께 "OpenMontage를 코드로 가져다 쓸지 vs. 설계만 참고할지", "러비더비 대화를 어디서 가져올지", "생성 리소스를 유료로 바로 쓸지 무료부터 만들지" 등 핵심 결정 지점을 구조화된 질문으로 정리해 답변 → 방향을 빠르게 확정.
+3. **기초 문서 작성**: README.md / CLAUDE.md(작업 규칙) / PROJECT_BRIEF.md(상세 스펙) / .gitignore / .claude/settings.json을 AI-Native 워크플로에 맞게 작성.
+
+### 사용한 AI 도구/기능
+
+| 도구 | 용도 |
+|---|---|
+| Claude Code (`Explore` 서브에이전트) | 저장소 전체 구조/커밋 히스토리를 백그라운드로 조사시키고, 그 사이 다른 조사(웹 리서치)를 병렬로 진행 |
+| `WebFetch` | OpenMontage GitHub 저장소의 README를 요약·구조화해서 분석 |
+| `WebSearch` | 러비더비 서비스의 공개 정보(기능, 회사 정보) 수집 |
+| `AskUserQuestion` (구조화된 질문) | 여러 갈래로 나뉠 수 있는 설계 결정을, 옵션과 트레이드오프를 정리한 객관식 질문으로 변환해 빠르게 합의 |
+| Plan Mode | 실제 파일을 건드리기 전에 "무엇을 왜 만드는지"를 먼저 문서화하고 승인받는 절차를 강제 |
+
+### 겪은 이슈
+
+**저장소 히스토리 사고**: 조사 중 `main` 브랜치가 실제로는 빈 트리를 가진 orphan 커밋(`ec04e72`)이고, 이전에 작성됐던 실제 내용이 담긴 커밋(`8f31097`)은 브랜치 교체 과정에서 도달 불가능(dangling) 상태가 되어 있는 것을 발견했다. `git log`만 봐서는 알 수 없고 `git reflog` / `git fsck --unreachable`로만 드러나는 문제였다.
+
+- **원인 추정**: 이전 세션에서 `new-main`이라는 브랜치를 orphan 커밋으로 새로 만든 뒤 `main`으로 이름을 바꾸면서, 기존 `main`(실제 내용이 있던 브랜치)을 덮어쓴 것으로 보인다.
+- **대응**: 삭제/덮어쓰기 전에 먼저 `git fsck`로 dangling 오브젝트를 전수 조사해 "예상한 것 외에 다른 게 섞여있지 않은지" 확인한 뒤, 사용자에게 상황을 설명하고 복구할지/버릴지 선택하게 함. 사용자가 "무시하고 새로 작성"을 선택한 뒤에야 `git reflog expire` + `git gc --prune=now`로 완전히 정리했다.
+- **배운 점**: `git status`/`git log`만으로는 저장소가 "정상"인지 판단할 수 없다. 특히 AI 에이전트가 git 작업을 대신할 때는 겉보기 상태와 실제 도달 가능성(reachability)을 구분해서 확인하는 습관이 필요하다는 것을 재확인했다. 삭제성 작업은 반드시 사용자 확인 후 진행했다.
+
+### 왜 이렇게 결정했나
+
+자세한 근거는 [DECISIONS.md](./DECISIONS.md)의 ADR-001~003 참고.
+
+---
+
+## Phase 1 — 고정 JSON → Remotion MP4 렌더링 POC
+
+### 무엇을 했나
+
+1. **레포 히스토리 완전 정리**: Phase 0에서 발견한 dangling 커밋(이전에 쓰다 유실된 CLAUDE.md/PROJECT_BRIEF.md 등)을 사용자 확인 후 `git fsck`로 다른 오브젝트가 섞여있지 않은지 먼저 검증하고, `git reflog expire` + `git gc --prune=now`로 완전히 삭제했다.
+2. **원작 샘플 스토리 작성**: 러비더비나 저작권 있는 캐릭터를 쓸 수 없으므로, 5씬짜리 원작 로맨스 벡터 "책갈피"(비 오는 도서관, 사서 하람)를 새로 만들었다. 근거는 [DECISIONS.md](./DECISIONS.md) ADR-005 참고.
+3. **Remotion 프로젝트를 수동으로 최소 구성**: Next.js/Supabase 등 이후 Phase에서 필요한 것들을 먼저 끌어오지 않고, `remotion`/`@remotion/cli`/`zod`/`vitest`/`typescript`만으로 TypeScript strict 프로젝트를 직접 구성했다(create-video 같은 스캐폴딩 CLI를 쓰지 않고 package.json/tsconfig부터 직접 작성 — 구조를 온전히 이해하고 통제하기 위함).
+4. **데이터/렌더 코드 분리**: `src/schema.ts`(Zod), `src/data/sample-story.json`(고정 데이터), `src/StoryComposition.tsx`(렌더 컴포넌트)를 분리해, 나중에 AI가 생성한 JSON으로 이 JSON을 그대로 교체할 수 있게 설계했다.
+5. **검증**: `tsc --noEmit`(strict 통과), Vitest 3종 테스트(스키마 유효성, 총 재생시간이 25~35초 범위인지, 잘못된 색상값 거부), `remotion render`로 실제 `out/story.mp4`(1080×1920, 30fps, 28초, 1.7MB) 렌더링까지 전부 성공을 확인했다.
+
+### 사용한 AI 도구/기능
+
+| 도구 | 용도 |
+|---|---|
+| Claude Code (직접 코드 작성) | Zod 스키마, Remotion Composition, 애니메이션(spring/interpolate) 코드를 직접 설계·작성 |
+| Bash 도구 | `pnpm install`/`typecheck`/`test`/`render`를 순차 실행하며 각 단계 실패 여부를 즉시 확인 |
+| TodoWrite | Phase 1의 6개 하위 작업(스캐폴딩→스키마→컴포지션→검증→문서화)을 진행 상황과 함께 추적 |
+
+### 겪은 이슈
+
+- **ffmpeg 미설치**: 렌더링 서버에 시스템 ffmpeg가 없었다. Remotion 4.x는 자체 컴포지터/먹서를 내장해 시스템 ffmpeg 없이도 렌더링이 가능하다는 것을 사전에 확인하고 진행했고, 실제로 문제없이 렌더링됐다.
+- **ffprobe로 산출물 정밀 검증 불가**: ffprobe도 없어서 PROJECT_BRIEF.md가 요구하는 수준(정확한 해상도/오디오 트랙 자동 검증)까지는 이번 Phase에서 확인하지 못했다. 파일 시그니처(ISO Media MP4)와 렌더 로그상의 프레임 수(840/840, 30fps 기준 28초)로 간접 확인하는 데 그쳤다. **한계로 남겨두고, ffmpeg가 있는 환경에서 재검증이 필요하다.**
+- **esbuild 빌드 스크립트 차단**: `pnpm install` 시 pnpm이 esbuild의 postinstall 스크립트를 보안상 기본 차단했다는 경고가 있었다(`pnpm approve-builds` 필요). 이번 Phase의 테스트/타입체크/렌더링은 모두 정상 동작해 당장 영향은 없었지만, 추후 원인 불명의 빌드 이슈가 생기면 가장 먼저 의심할 지점으로 기록해둔다.
+
+### 왜 이렇게 결정했나
+
+Phase 1 범위를 Remotion 단독으로 좁힌 이유와 샘플 스토리 선정 이유는 [DECISIONS.md](./DECISIONS.md) ADR-004, ADR-005 참고.
+
+---
+
+<!-- Phase 2 이후 섹션은 아래에 이어서 추가됩니다 -->
