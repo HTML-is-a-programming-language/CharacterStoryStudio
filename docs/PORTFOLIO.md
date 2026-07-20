@@ -334,4 +334,41 @@ pnpm run qa <다운로드된 mp4>                             → ✓ 1080x1920,
 
 ---
 
+## Phase 8 — 캐릭터 채팅 UI
+
+### 무엇을 했나
+
+1. **우선순위 재질문**: "캐릭터 채팅 UI vs 렌더링 비동기화(큐)" 중 채팅 UI를 선택했다. ADR-013(Supabase 보류)과 같은 논리로, 큐는 실제 다중 사용자 부하가 생기기 전까지는 과투자라고 판단해 채팅을 권장했고 사용자도 동의했다.
+2. **정직한 Mock 설계**: `ChatProvider`/`MockChatProvider`를 추가했는데, 사용자가 실제로 입력한 텍스트는 전혀 이해하지 않고 `sample-conversation.json`의 고정 대본을 순서대로 재생한다(ADR-015). 화면에 이걸 명시했다.
+3. **이 프로젝트 첫 Server Action**: 지금까지(Phase 4) 승인 상태는 전부 URL로만 표현했는데, 채팅은 진행형 상호작용이라 URL로 표현하기 부적합했다. `app/chat/actions.ts`의 `sendChatMessage`가 이 프로젝트의 첫 Server Action이다(ADR-016). 채팅 메시지 목록 자체는 클라이언트 컴포넌트(`ChatClient.tsx`)의 React state에만 있고 DB는 여전히 없다.
+4. **기존 파이프라인과의 연결**: 채팅이 끝나면(대본 소진) 홈 화면(기존 컨셉 분석 파이프라인)으로 가는 링크를 보여준다. 사용자가 기본 제안 문구를 그대로 보내는 한 채팅 내용이 기존에 분석해온 `sample-conversation.json`과 동일해서 자연스럽게 이어진다.
+
+### 실행 결과
+
+```
+pnpm run typecheck → 통과 (2 tsconfig)
+pnpm run test        → 43 passed (mockChatProvider 5, chatActions 2 포함)
+pnpm exec next build → 성공, /chat 라우트 정적 생성됨
+curl GET /chat        → 200, 안내 문구/장면 캡션 확인, 입력창에 대본 첫 사용자 대사 "오늘따라 도서관이 한산하네요." 프리필 확인
+curl GET /            → "먼저 하람와(과) 채팅해보기 →" 링크 확인
+```
+
+### 사용한 AI 도구/기능
+
+| 도구 | 용도 |
+|---|---|
+| AskUserQuestion | "채팅 UI vs 큐" 우선순위를 ADR-013과 같은 논리적 근거를 제시하며 위임 |
+| Bash(dev 서버 + curl) | 서버 컴포넌트 렌더링(초기 화면, 프리필 문구)을 실제로 확인 |
+
+### 겪은 이슈 / 한계
+
+- **Server Action은 curl로 끝까지 검증하지 못했다**: `sendChatMessage`의 실제 "보내기" 클릭 흐름은 Next.js의 React Server Actions 프로토콜(특수 헤더/직렬화)을 curl로 재현하기 어려워, 이번엔 vitest로 함수 자체(사용자 메시지 생성 → 캐릭터 답장 조회 → 다음 제안 문구 계산)만 직접 호출해 검증했다. 실제 브라우저 클릭까지는 확인하지 못했다는 한계를 남긴다.
+- **장시간 세션에서 누적된 유령 프로세스**: 이번에도 `pgrep -f "node"`로 찾은 프로세스를 다 죽였는데도 포트 3000~3003이 여전히 막혀 있었다 — Windows 네이티브 프로세스라 Git Bash의 프로세스 도구로는 안 잡히는 것으로 추정된다. 매번 실제로 뜬 포트를 로그에서 확인하고 그걸 쓰는 방식으로 우회했다.
+
+### 왜 이렇게 결정했나
+
+Mock 채팅 설계와 Server Action 도입 근거는 [DECISIONS.md](./DECISIONS.md) ADR-015, ADR-016 참고.
+
+---
+
 <!-- 다음 작업 섹션은 아래에 이어서 추가됩니다 -->
