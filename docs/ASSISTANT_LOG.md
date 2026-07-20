@@ -80,6 +80,17 @@ URL만으로 충분히 표현 가능하다는 걸 확인하고 Server Action 없
 순수 함수(`app/lib/storyQueryState.ts`)를 만들고, 실제 dev 서버를 백그라운드로 띄운 뒤 curl로
 승인 표시/배경 변경/전체 승인 메시지가 실제로 동작하는 것까지 확인했다.
 
+## 9. Phase 5(이미지 Provider Mock) 우선순위 질문 + 구현
+
+"이미지 Provider 연동 vs 승인 상태 저장소(Supabase) 도입" 우선순위를 질문했고 전자로 확정됐다.
+`ImageProvider`/`MockImageProvider`를 `StoryProvider`와 같은 패턴으로 만들어, 씬 id·톤·재생성
+횟수·대사를 해시한 시드로 결정론적 절차적 SVG(그라디언트+추상 도형)를 생성해 base64 데이터 URI로
+인코딩했다. 실제 유료 이미지 API는 이번에도 연동하지 않고 근거를 ADR-011에 남겼다. Next UI와
+Remotion 양쪽이 새로 만든 `sceneBackgroundStyle` 공유 헬퍼로 이 이미지를 렌더링하게 해 로직 중복을
+없앴고, 재생성 시 이미지가 실제로 달라지는지 curl로 base64 데이터를 직접 비교해 확인했다. 이미지
+있는 스토리보드와 Phase 1의 이미지 없는 고정 샘플 둘 다 Remotion 렌더링+QA를 통과시켜 회귀가
+없음을 확인했다.
+
 ---
 
 <!-- 이후 답변도 이 아래에 이어서 추가합니다 -->

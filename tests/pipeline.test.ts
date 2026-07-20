@@ -47,6 +47,7 @@ describe("MockStoryProvider", () => {
         const exists = conversation.messages.some((message) => message.id === sourceId);
         expect(exists).toBe(true);
       }
+      expect(scene.imageDataUri?.startsWith("data:image/svg+xml;base64,")).toBe(true);
     }
   });
 
@@ -81,6 +82,7 @@ describe("MockStoryProvider", () => {
     expect(regenerated.dialogue).toBe(originalScene.dialogue);
     expect(regenerated.sourceMessageIds).toEqual(originalScene.sourceMessageIds);
     expect(regenerated.background).not.toEqual(originalScene.background);
+    expect(regenerated.imageDataUri).not.toEqual(originalScene.imageDataUri);
   });
 
   it("regenerateScene은 variant가 0이면 씬을 그대로 반환한다", async () => {

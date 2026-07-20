@@ -1,4 +1,5 @@
 import { SceneSchema, StoryPlanSchema, type Scene, type StoryPlan } from "../schema";
+import { MockImageProvider } from "./MockImageProvider";
 import type { StoryProvider } from "./StoryProvider";
 import type { Conversation, ConversationAnalysis, StoryConcept } from "./types";
 import { distributeDurationFrames, pickFromCycle } from "./utils";
@@ -106,27 +107,39 @@ export const MockStoryProvider: StoryProvider = {
     const palette = TONE_PALETTES[concept.tone];
     const durations = distributeDurationFrames(TARGET_TOTAL_SECONDS * FPS, analysis.events.length);
 
-    const scenes = analysis.events.map((event, index) => {
-      const message = messageById.get(event.sourceMessageId);
-      if (!message) {
-        throw new Error(`원본 메시지를 찾을 수 없습니다: ${event.sourceMessageId}`);
-      }
+    const scenes = await Promise.all(
+      analysis.events.map(async (event, index) => {
+        const message = messageById.get(event.sourceMessageId);
+        if (!message) {
+          throw new Error(`원본 메시지를 찾을 수 없습니다: ${event.sourceMessageId}`);
+        }
 
-      const durationInFrames = durations[index];
-      if (durationInFrames === undefined) {
-        throw new Error("씬 길이를 계산하지 못했습니다.");
-      }
+        const durationInFrames = durations[index];
+        if (durationInFrames === undefined) {
+          throw new Error("씬 길이를 계산하지 못했습니다.");
+        }
 
-      return {
-        id: `scene-${index + 1}`,
-        durationInFrames,
-        background: pickFromCycle(palette, index),
-        speaker: message.role === "character" ? conversation.character.name : "나",
-        dialogue: message.content,
-        caption: concept.title,
-        sourceMessageIds: [event.sourceMessageId],
-      };
-    });
+        const sceneId = `scene-${index + 1}`;
+        const image = await MockImageProvider.generateSceneImage({
+          sceneId,
+          tone: concept.tone,
+          variant: 0,
+          seedText: message.content,
+        });
+
+        return {
+          id: sceneId,
+          durationInFrames,
+          background: pickFromCycle(palette, index),
+          speaker: message.role === "character" ? conversation.character.name : "나",
+          dialogue: message.content,
+          caption: concept.title,
+          sourceMessageIds: [event.sourceMessageId],
+          imageDataUri: image.dataUri,
+          imageAlt: image.altText,
+        };
+      }),
+    );
 
     return StoryPlanSchema.parse({
       title: concept.title,
@@ -148,14 +161,22 @@ export const MockStoryProvider: StoryProvider = {
     }
 
     // 대사(speaker/dialogue/sourceMessageIds)는 원본 대화에서 나온 사실이므로 재생성 대상이
-    // 아니다 — 여기서 바꾸는 건 연출(배경 팔레트)뿐이다. 실제 LLM Provider로 교체하더라도
-    // 이 불변식(대사 불변)은 유지해야 한다.
+    // 아니다 — 여기서 바꾸는 건 연출(배경 팔레트 + 이미지)뿐이다. 실제 LLM/이미지 Provider로
+    // 교체하더라도 이 불변식(대사 불변)은 유지해야 한다.
     const palette = TONE_PALETTES[concept.tone];
     const background = pickFromCycle(palette, sceneIndex + variant);
+    const image = await MockImageProvider.generateSceneImage({
+      sceneId: scene.id,
+      tone: concept.tone,
+      variant,
+      seedText: scene.dialogue,
+    });
 
     return SceneSchema.parse({
       ...scene,
       background,
+      imageDataUri: image.dataUri,
+      imageAlt: image.altText,
     });
   },
 };

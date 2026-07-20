@@ -48,6 +48,7 @@ describe("sampleConversationPipeline", () => {
 
     expect(variedScene?.dialogue).toBe(targetScene.dialogue);
     expect(variedScene?.background).not.toEqual(targetScene.background);
+    expect(variedScene?.imageDataUri).not.toEqual(targetScene.imageDataUri);
     // 재생성 대상이 아닌 씬은 그대로 유지된다.
     expect(varied?.storyboard.scenes[1]).toEqual(base.storyboard.scenes[1]);
   });

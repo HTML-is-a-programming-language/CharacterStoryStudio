@@ -8,6 +8,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import type { Scene, StoryPlan } from "./schema";
+import { sceneBackgroundStyle } from "./sceneStyle";
 
 const SceneView: React.FC<{ scene: Scene }> = ({ scene }) => {
   const frame = useCurrentFrame();
@@ -18,14 +19,17 @@ const SceneView: React.FC<{ scene: Scene }> = ({ scene }) => {
   const dialogueOffsetY = interpolate(enter, [0, 1], [30, 0]);
 
   return (
-    <AbsoluteFill
-      style={{
-        background: `linear-gradient(160deg, ${scene.background.from}, ${scene.background.to})`,
-        justifyContent: "flex-end",
-        padding: 80,
-        fontFamily: "'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif",
-      }}
-    >
+    <AbsoluteFill style={sceneBackgroundStyle(scene)}>
+      <AbsoluteFill
+        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0) 55%)" }}
+      />
+      <AbsoluteFill
+        style={{
+          justifyContent: "flex-end",
+          padding: 80,
+          fontFamily: "'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif",
+        }}
+      >
       {scene.caption !== undefined && (
         <div
           style={{
@@ -49,6 +53,7 @@ const SceneView: React.FC<{ scene: Scene }> = ({ scene }) => {
           {scene.dialogue}
         </div>
       </div>
+      </AbsoluteFill>
     </AbsoluteFill>
   );
 };
