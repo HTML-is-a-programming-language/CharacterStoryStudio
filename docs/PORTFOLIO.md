@@ -155,4 +155,44 @@ Next.js 공존 방식과 Playwright 미도입 근거는 [DECISIONS.md](./DECISIO
 
 ---
 
-<!-- Phase 4 이후 섹션은 아래에 이어서 추가됩니다 -->
+## Phase 4 — 스토리보드 승인/재생성 UI
+
+### 무엇을 했나
+
+1. **우선순위 재질문**: "이미지 Provider 연동 vs 승인/재생성 UI 확장" 중 사용자가 후자를 선택했다.
+2. **재생성의 정직한 정의**: Mock Provider는 LLM이 아니라서 "대사를 다시 쓰는" 재생성은 불가능하다. 그래서 재생성을 "대사(원본 대화 사실)는 그대로 두고 연출(배경 팔레트)만 바꾸는 것"으로 명확히 좁혔다. `StoryProvider` 인터페이스에 `regenerateScene`을 추가하고, 이 불변식(대사 불변)을 테스트로 고정했다.
+3. **설계 중 계획 수정**: 사용자에게 질문할 때는 "Server Action 도입"을 자연스러운 방향으로 제시했었는데, 막상 설계해보니 승인/재생성 상태 둘 다 DB 저장 없이 URL만으로 충분히 표현 가능했다. Phase 3에서 세운 "클라이언트 상태·DB 없이 URL이 곧 상태" 원칙을 지키는 게 더 일관성 있다고 판단해 Server Action 없이 순수 `<Link>` 기반으로 방향을 바꿨다(ADR-010). 사용자에게 다시 묻지 않고 기술적으로 더 단순한 대안을 스스로 선택하고 근거를 남겼다.
+4. **팔레트 확장**: 각 톤(calm/romantic/bittersweet)의 배경 그라디언트를 2개→3개로 늘려서 재생성 버튼을 눌렀을 때 실제로 눈에 띄게 달라지도록 했다.
+5. **테스트**: `storyQueryState`(파싱/직렬화/토글/증가, URL 라운드트립) 6종, `regenerateScene`(불변식 검증) 2종, 파이프라인 레벨 variants 적용 1종을 추가했다.
+
+### 실행 결과
+
+```
+pnpm run typecheck → 통과 (2 tsconfig)
+pnpm run test        → 19 passed (schema 3 + pipeline 6 + sampleConversationPipeline 4 + storyQueryState 6)
+pnpm exec next build → 성공
+curl 승인 흐름 확인:
+  GET /story/concept-romantic?approved=scene-1                → "✓ 승인됨" 텍스트 확인
+  GET /story/concept-romantic?variant=scene-1:1                → scene-1 배경만 #2a1a3d/#5b3a66 → #3a1f3d/#7a4a63로 변경, 대사 동일
+  GET /story/concept-romantic?approved=scene-1,...,scene-5     → "모든 씬이 승인되었습니다" 안내 노출
+pnpm run generate (CLI 경로) → 회귀 없음 확인
+```
+
+### 사용한 AI 도구/기능
+
+| 도구 | 용도 |
+|---|---|
+| AskUserQuestion | "승인/재생성 UI 확장 vs 이미지 Provider" 우선순위를 사용자에게 위임 |
+| Bash(dev 서버 백그라운드 + curl) | 실제 승인/재생성 상호작용을 브라우저 없이 HTTP 레벨에서 재현해 검증 |
+
+### 겪은 이슈
+
+- 없음 — Phase 3에서 이미 겪은 문제(server-only/vitest 충돌)를 재사용 가능한 alias로 미리 막아뒀기 때문에, 이번 Phase는 순조롭게 진행됐다.
+
+### 왜 이렇게 결정했나
+
+Server Action을 쓰지 않기로 한 이유, 재생성이 대사를 바꾸지 않는 이유는 [DECISIONS.md](./DECISIONS.md) ADR-010 참고.
+
+---
+
+<!-- Phase 5 이후 섹션은 아래에 이어서 추가됩니다 -->

@@ -1,4 +1,4 @@
-import { StoryPlanSchema, type StoryPlan } from "../schema";
+import { SceneSchema, StoryPlanSchema, type Scene, type StoryPlan } from "../schema";
 import type { StoryProvider } from "./StoryProvider";
 import type { Conversation, ConversationAnalysis, StoryConcept } from "./types";
 import { distributeDurationFrames, pickFromCycle } from "./utils";
@@ -19,14 +19,17 @@ const TONE_PALETTES: Record<StoryConcept["tone"], readonly Gradient[]> = {
   calm: [
     { from: "#0f1b3d", to: "#2b3a67" },
     { from: "#16233f", to: "#3d5075" },
+    { from: "#122036", to: "#2f4d5e" },
   ],
   romantic: [
     { from: "#2a1a3d", to: "#5b3a66" },
     { from: "#3a1f3d", to: "#7a4a63" },
+    { from: "#33163f", to: "#8a3f6b" },
   ],
   bittersweet: [
     { from: "#1c1533", to: "#3b2a5c" },
     { from: "#241326", to: "#5c2a4a" },
+    { from: "#1a1229", to: "#4a2a4f" },
   ],
 };
 
@@ -131,6 +134,28 @@ export const MockStoryProvider: StoryProvider = {
       width: WIDTH,
       height: HEIGHT,
       scenes,
+    });
+  },
+
+  async regenerateScene(
+    scene: Scene,
+    sceneIndex: number,
+    concept: StoryConcept,
+    variant: number,
+  ): Promise<Scene> {
+    if (variant <= 0) {
+      return scene;
+    }
+
+    // 대사(speaker/dialogue/sourceMessageIds)는 원본 대화에서 나온 사실이므로 재생성 대상이
+    // 아니다 — 여기서 바꾸는 건 연출(배경 팔레트)뿐이다. 실제 LLM Provider로 교체하더라도
+    // 이 불변식(대사 불변)은 유지해야 한다.
+    const palette = TONE_PALETTES[concept.tone];
+    const background = pickFromCycle(palette, sceneIndex + variant);
+
+    return SceneSchema.parse({
+      ...scene,
+      background,
     });
   },
 };

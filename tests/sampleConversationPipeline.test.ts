@@ -29,4 +29,26 @@ describe("sampleConversationPipeline", () => {
     const result = await getStoryboardForConcept("concept-does-not-exist");
     expect(result).toBeUndefined();
   });
+
+  it("sceneVariants를 넘기면 해당 씬의 배경만 바뀌고 대사는 그대로다", async () => {
+    const options = await getConceptOptions();
+    const firstConcept = options.concepts.at(0);
+    if (!firstConcept) {
+      throw new Error("테스트 준비 실패: 컨셉이 생성되지 않았습니다.");
+    }
+
+    const base = await getStoryboardForConcept(firstConcept.id);
+    const targetScene = base?.storyboard.scenes[0];
+    if (!base || !targetScene) {
+      throw new Error("테스트 준비 실패: 기준 스토리보드가 생성되지 않았습니다.");
+    }
+
+    const varied = await getStoryboardForConcept(firstConcept.id, { [targetScene.id]: 1 });
+    const variedScene = varied?.storyboard.scenes[0];
+
+    expect(variedScene?.dialogue).toBe(targetScene.dialogue);
+    expect(variedScene?.background).not.toEqual(targetScene.background);
+    // 재생성 대상이 아닌 씬은 그대로 유지된다.
+    expect(varied?.storyboard.scenes[1]).toEqual(base.storyboard.scenes[1]);
+  });
 });

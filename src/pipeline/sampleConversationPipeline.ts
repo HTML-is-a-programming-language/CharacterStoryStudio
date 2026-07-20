@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { StoryPlan } from "../schema";
+import { StoryPlanSchema, type StoryPlan } from "../schema";
 import { MockStoryProvider } from "./MockStoryProvider";
 import { ConversationSchema, type StoryConcept } from "./types";
 import sampleConversation from "./data/sample-conversation.json";
@@ -37,8 +37,13 @@ export interface StoryboardResult {
   storyboard: StoryPlan;
 }
 
+/**
+ * @param sceneVariants 씬 id → 재생성 횟수(1 이상이면 그 씬의 연출을 다시 고른다).
+ *   승인/재생성 UI가 URL 쿼리 상태로부터 이 값을 만들어 넘긴다.
+ */
 export async function getStoryboardForConcept(
   conceptId: string,
+  sceneVariants: Record<string, number> = {},
 ): Promise<StoryboardResult | undefined> {
   const conversation = loadSampleConversation();
   const analysis = await MockStoryProvider.analyzeConversation(conversation);
@@ -49,6 +54,15 @@ export async function getStoryboardForConcept(
     return undefined;
   }
 
-  const storyboard = await MockStoryProvider.generateStoryboard(concept, analysis, conversation);
+  const baseStoryboard = await MockStoryProvider.generateStoryboard(concept, analysis, conversation);
+
+  const scenes = await Promise.all(
+    baseStoryboard.scenes.map((scene, index) => {
+      const variant = sceneVariants[scene.id] ?? 0;
+      return MockStoryProvider.regenerateScene(scene, index, concept, variant);
+    }),
+  );
+
+  const storyboard = StoryPlanSchema.parse({ ...baseStoryboard, scenes });
   return { concept, storyboard };
 }

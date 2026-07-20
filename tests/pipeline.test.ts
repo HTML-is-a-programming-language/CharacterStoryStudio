@@ -60,4 +60,44 @@ describe("MockStoryProvider", () => {
 
     await expect(MockStoryProvider.analyzeConversation(flatConversation)).rejects.toThrow();
   });
+
+  it("regenerateScene은 대사/화자/출처는 그대로 두고 배경만 바꾼다", async () => {
+    const analysis = await MockStoryProvider.analyzeConversation(conversation);
+    const concepts = await MockStoryProvider.generateConcepts(analysis);
+    const concept = concepts.at(0);
+    if (!concept) {
+      throw new Error("테스트 준비 실패: 컨셉이 생성되지 않았습니다.");
+    }
+
+    const storyboard = await MockStoryProvider.generateStoryboard(concept, analysis, conversation);
+    const originalScene = storyboard.scenes[0];
+    if (!originalScene) {
+      throw new Error("테스트 준비 실패: 씬이 생성되지 않았습니다.");
+    }
+
+    const regenerated = await MockStoryProvider.regenerateScene(originalScene, 0, concept, 1);
+
+    expect(regenerated.speaker).toBe(originalScene.speaker);
+    expect(regenerated.dialogue).toBe(originalScene.dialogue);
+    expect(regenerated.sourceMessageIds).toEqual(originalScene.sourceMessageIds);
+    expect(regenerated.background).not.toEqual(originalScene.background);
+  });
+
+  it("regenerateScene은 variant가 0이면 씬을 그대로 반환한다", async () => {
+    const analysis = await MockStoryProvider.analyzeConversation(conversation);
+    const concepts = await MockStoryProvider.generateConcepts(analysis);
+    const concept = concepts.at(0);
+    if (!concept) {
+      throw new Error("테스트 준비 실패: 컨셉이 생성되지 않았습니다.");
+    }
+
+    const storyboard = await MockStoryProvider.generateStoryboard(concept, analysis, conversation);
+    const originalScene = storyboard.scenes[0];
+    if (!originalScene) {
+      throw new Error("테스트 준비 실패: 씬이 생성되지 않았습니다.");
+    }
+
+    const unchanged = await MockStoryProvider.regenerateScene(originalScene, 0, concept, 0);
+    expect(unchanged).toEqual(originalScene);
+  });
 });

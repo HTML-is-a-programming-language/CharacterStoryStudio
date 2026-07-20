@@ -1,4 +1,4 @@
-import type { StoryPlan } from "../schema";
+import type { Scene, StoryPlan } from "../schema";
 import type { Conversation, ConversationAnalysis, StoryConcept } from "./types";
 
 /**
@@ -13,4 +13,14 @@ export interface StoryProvider {
     analysis: ConversationAnalysis,
     conversation: Conversation,
   ): Promise<StoryPlan>;
+  /**
+   * 씬 하나를 다시 연출한다. speaker/dialogue/sourceMessageIds는 원본 대화 사실이므로
+   * 구현체가 바꿔서는 안 된다 — 승인/재생성 UI는 이 불변식을 전제로 동작한다.
+   */
+  regenerateScene(
+    scene: Scene,
+    sceneIndex: number,
+    concept: StoryConcept,
+    variant: number,
+  ): Promise<Scene>;
 }
