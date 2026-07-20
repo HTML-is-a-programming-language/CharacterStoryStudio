@@ -1,5 +1,5 @@
 import { SceneSchema, StoryPlanSchema, type Scene, type StoryPlan } from "../schema";
-import { MockImageProvider } from "./MockImageProvider";
+import { getImageProvider } from "./getImageProvider";
 import type { StoryProvider } from "./StoryProvider";
 import type { Conversation, ConversationAnalysis, StoryConcept } from "./types";
 import { distributeDurationFrames, pickFromCycle } from "./utils";
@@ -11,6 +11,10 @@ import { distributeDurationFrames, pickFromCycle } from "./utils";
  * 이 방식은 특정 대화 톤(로맨스 장르, 한국어 구어체)에 맞춰 고른 키워드 목록에 의존하므로
  * 일반적인 대화에는 잘 맞지 않을 수 있다. 실제 Provider(LLM 기반)로 교체할 때는 이 부분을
  * 프롬프트 기반 분석으로 대체해야 한다.
+ *
+ * 이름은 "Mock"이지만 씬 이미지 생성은 getImageProvider()가 환경변수(IMAGE_PROVIDER,
+ * OPENAI_API_KEY)에 따라 실제 Provider로 바꿔치기할 수 있다(ADR-012). 대화 분석/컨셉/
+ * 스토리보드 로직 자체는 여전히 규칙 기반이라 이름은 그대로 유지한다.
  */
 const EVENT_KEYWORDS = ["비", "설레", "좋아", "예쁘다", "우산"];
 
@@ -120,7 +124,7 @@ export const MockStoryProvider: StoryProvider = {
         }
 
         const sceneId = `scene-${index + 1}`;
-        const image = await MockImageProvider.generateSceneImage({
+        const image = await getImageProvider().generateSceneImage({
           sceneId,
           tone: concept.tone,
           variant: 0,
@@ -165,7 +169,7 @@ export const MockStoryProvider: StoryProvider = {
     // 교체하더라도 이 불변식(대사 불변)은 유지해야 한다.
     const palette = TONE_PALETTES[concept.tone];
     const background = pickFromCycle(palette, sceneIndex + variant);
-    const image = await MockImageProvider.generateSceneImage({
+    const image = await getImageProvider().generateSceneImage({
       sceneId: scene.id,
       tone: concept.tone,
       variant,

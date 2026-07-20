@@ -91,6 +91,16 @@ Remotion 양쪽이 새로 만든 `sceneBackgroundStyle` 공유 헬퍼로 이 이
 있는 스토리보드와 Phase 1의 이미지 없는 고정 샘플 둘 다 Remotion 렌더링+QA를 통과시켜 회귀가
 없음을 확인했다.
 
+## 10. Phase 6(실제 이미지 Provider) 우선순위 질문 + 구현
+
+"실제 유료 이미지 API 연동 vs 승인 상태 저장소(Supabase) 도입" 중, 둘 다 사용자의 외부 계정/키가
+있어야 끝까지 검증 가능하다는 제약을 먼저 밝히고 질문했다. 사용자가 이미지 API 연동을 선택했다.
+OpenAI Images API(`gpt-image-1`)를 벤더로 고르고, `IMAGE_PROVIDER=real`과 `OPENAI_API_KEY`가
+둘 다 있어야만 실제 API를 쓰는 이중 opt-in을 설계해 비용이 실수로 발생하지 않게 했다. 실제 API
+키가 없어 라이브 호출은 검증하지 못했다는 한계를 코드 주석·ADR·포트폴리오 문서에 반복해서
+명시했고, 대신 `fetch`를 의존성 주입 가능하게 설계해 요청 형식과 응답 파싱 로직만이라도
+테스트로 검증했다. 기본(Mock) 경로의 typecheck/test/build/렌더링/QA 회귀는 모두 확인했다.
+
 ---
 
 <!-- 이후 답변도 이 아래에 이어서 추가합니다 -->

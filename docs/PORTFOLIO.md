@@ -236,4 +236,42 @@ pnpm run render            → out/story.mp4 (이미지 없음, 그라디언트 
 
 ---
 
-<!-- Phase 6 이후 섹션은 아래에 이어서 추가됩니다 -->
+## Phase 6 — 실제 이미지 Provider(OpenAI) 연동
+
+### 무엇을 했나
+
+1. **우선순위 재질문**: "실제 유료 이미지 API 연동 vs 승인 상태 저장소(Supabase) 도입" 중 이미지 API 연동을 선택했다. 둘 다 사용자의 외부 계정/키가 있어야 끝까지 검증 가능하다는 걸 미리 밝히고 진행했다.
+2. **벤더 선택**: OpenAI Images API(`gpt-image-1`)를 골랐다. FAL/Replicate류의 비동기 잡 제출→폴링 방식보다 단일 REST 호출로 끝나는 쪽이 이번 범위에 더 맞았다.
+3. **이중 opt-in 설계**: `IMAGE_PROVIDER=real` **그리고** `OPENAI_API_KEY`가 둘 다 있어야 실제 API를 쓴다(`src/pipeline/getImageProvider.ts`). 키만 있고 모드를 지정 안 하면 여전히 Mock. 모드는 real인데 키가 없으면 에러 대신 경고 후 Mock 폴백 — Demo Mode가 절대 깨지지 않게 했다.
+4. **의존성 주입으로 테스트 가능하게 설계**: `OpenAiImageProvider`가 `fetch` 구현체를 생성자로 주입받게 만들어, 실제 네트워크 없이도 요청 형식과 응답 파싱(성공/실패/빈 응답)을 vitest로 검증할 수 있게 했다.
+5. **정직한 한계 표시**: 실제 API 키가 없어 라이브 호출은 단 한 번도 검증하지 못했다. 코드 주석, ADR, 이 문서 모두에 이 사실을 반복해서 명시했다 — "테스트가 통과했다"와 "실제로 동작을 확인했다"를 구분하는 게 중요하다고 판단했다.
+
+### 실행 결과
+
+```
+pnpm run typecheck → 통과 (2 tsconfig)
+pnpm run test        → 33 passed (openAiImageProvider 5 + getImageProvider 4 포함)
+pnpm exec next build → 성공 (기본 Mock 경로, 환경변수 없음)
+pnpm run generate/render:generated/qa → 회귀 없음 확인 (기본 Mock 경로)
+```
+
+라이브 API 호출 자체는 검증하지 못했다 — `OPENAI_API_KEY`를 가진 환경에서 `IMAGE_PROVIDER=real pnpm run generate`를 실행해봐야 진짜 검증이 끝난다.
+
+### 사용한 AI 도구/기능
+
+| 도구 | 용도 |
+|---|---|
+| AskUserQuestion | "이미지 API 연동 vs 저장소 도입" 우선순위를, 둘 다 외부 자격증명이 필요하다는 제약을 먼저 밝히고 위임 |
+| Bash 백그라운드 실행 | 렌더링+QA 회귀 확인을 백그라운드로 돌리며 동시에 문서 작업 진행 |
+
+### 겪은 이슈
+
+- **검증 불가능한 부분의 정직한 처리**: 실제 API 키가 없다는 물리적 한계 때문에, "이 코드가 옳다고 확신한다"와 "실제로 동작을 확인했다"를 섞어 말하지 않으려고 의식적으로 문구를 구분했다(CLAUDE.md "실행하지 않은 검증을 통과했다고 보고하지 않는다"). 대신 fetch 의존성 주입으로 로직(요청 형식, 응답 파싱, 에러 처리)만이라도 실제로 테스트했다.
+
+### 왜 이렇게 결정했나
+
+벤더 선택과 이중 opt-in 설계의 근거는 [DECISIONS.md](./DECISIONS.md) ADR-012 참고.
+
+---
+
+<!-- Phase 7 이후 섹션은 아래에 이어서 추가됩니다 -->

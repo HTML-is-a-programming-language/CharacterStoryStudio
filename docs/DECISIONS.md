@@ -100,4 +100,16 @@
 
 ---
 
+## ADR-012. Phase 6: 실제 이미지 Provider 연동(OpenAI, 이중 opt-in, Mock 폴백)
+
+- **상태**: 확정
+- **배경**: "실제 유료 이미지 API 연동 vs Supabase 도입" 중 이미지 API 연동을 선택했다. 어떤 벤더를 쓸지, 그리고 CLAUDE.md의 "비용이 발생하는 실제 Provider 호출은 사용자 승인 없이 자동 실행하지 않는다"를 코드로 어떻게 강제할지 결정이 필요했다.
+- **결정**:
+  - **벤더**: OpenAI Images API(`gpt-image-1`)를 선택했다. FAL/Replicate류는 보통 비동기 잡 제출 → 폴링 방식이라 이번 범위에 비해 복잡하고, OpenAI는 단일 REST 호출로 끝난다.
+  - **이중 opt-in**: `IMAGE_PROVIDER=real` **그리고** `OPENAI_API_KEY`가 둘 다 있어야 실제 Provider를 쓴다. 키만 있고 `IMAGE_PROVIDER`를 지정하지 않으면(기본값 `mock`) 여전히 Mock을 쓴다 — 환경에 키가 어쩌다 있다는 이유만으로 비용이 발생하지 않게 하기 위한 장치다. `IMAGE_PROVIDER=real`인데 키가 없으면 에러를 던지지 않고 콘솔 경고 후 Mock으로 안전하게 폴백한다(Demo Mode가 항상 동작해야 한다는 ADR-002 원칙 유지).
+  - **테스트 방식**: 실제 API 키가 없어 라이브 호출은 검증하지 못한다. `OpenAiImageProvider`는 `fetch` 구현체를 주입받게 설계해, 테스트에서는 가짜 fetch로 요청 형식(URL/헤더/바디)과 응답 파싱(b64_json/url 두 형태), 에러 처리(비정상 응답 시 명확한 에러)만 검증한다.
+- **결과**: 코드/설계는 준비됐지만 **실제 라이브 API 호출은 이번 세션에서 한 번도 검증되지 않았다** — 사용자가 실제 `OPENAI_API_KEY`를 넣고 `IMAGE_PROVIDER=real`로 실행해봐야 진짜 검증이 끝난다. 이 한계를 보고서와 포트폴리오 문서에 명시한다.
+
+---
+
 <!-- 이후 Phase에서 결정한 사항은 이 아래에 계속 추가합니다 -->
