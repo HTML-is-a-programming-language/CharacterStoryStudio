@@ -113,4 +113,46 @@ Phase 1의 고정 스토리와 Phase 2의 AI(Mock) 생성 스토리가 우연히
 
 ---
 
-<!-- Phase 3 이후 섹션은 아래에 이어서 추가됩니다 -->
+## Phase 3 — 컨셉 선택 최소 UI (Next.js)
+
+### 무엇을 했나
+
+1. **우선순위 결정**: "컨셉 선택 최소 UI" vs "이미지 Provider 연동" 중 무엇을 먼저 할지 사용자에게 확인했다. UI를 먼저 만들기로 하면서 PROJECT_BRIEF.md의 핵심 차별화 포인트인 "Human-in-the-loop 승인 게이트"를 처음으로 화면에 구현하게 됐다.
+2. **설계를 Plan 서브에이전트에 위임**: Next.js를 모노레포로 분리할지 기존 패키지에 공존시킬지, 어떤 버전을 쓸지, Provider 호출을 어떻게 UI와 격리할지, 라우팅/상태를 어떻게 설계할지를 Plan 에이전트에게 맡겨 검증받았다. 결과를 검토한 뒤 Plan Mode로 계획을 확정하고 승인받았다.
+3. **Next.js 14(App Router)를 기존 패키지에 공존**: 모노레포 전환 없이 `tsconfig.web.json`(Next 전용, 기존 tsconfig.json은 extends만 함)과 `next.config.mjs`의 `typescript.tsconfigPath`로 Next의 tsconfig 자동 덮어쓰기 문제만 해결했다. 근거는 ADR-008.
+4. **Provider 호출 격리**: `src/pipeline/sampleConversationPipeline.ts`에 `import "server-only";`를 두어, `app/**`의 어떤 컴포넌트도 `MockStoryProvider`를 직접 호출할 수 없게 강제했다.
+5. **화면 2개, 클라이언트 상태 0개**: `/`(컨셉 3장) → `/story/[conceptId]`(5씬 스토리보드). 전환은 일반 `<Link>`(GET)만 쓰고, 상태는 전부 URL에 있다 — Server Component만으로 충분해 `"use client"`가 한 곳도 필요 없었다.
+6. **테스트 우선 순서**: UI를 만들기 전에 `sampleConversationPipeline.ts`와 그 테스트부터 작성해 로직을 vitest로 먼저 검증한 뒤 화면을 붙였다.
+
+### 실행 결과
+
+```
+pnpm run typecheck   → tsc(기존) + tsc(tsconfig.web.json) 둘 다 통과
+pnpm run test         → 10 passed (schema 3 + pipeline 4 + sampleConversationPipeline 3)
+pnpm exec next build  → 성공, "/"는 정적 프리렌더, "/story/[conceptId]"는 동적 렌더로 자동 분류됨
+curl GET /                          → 200, 컨셉 3장(잔잔한 하루/설레는 고백/여운이 남는 밤) 확인
+curl GET /story/concept-romantic    → 200, 5개 씬 대사(우산/예쁘다/설레는데요 등) 확인
+curl GET /story/does-not-exist      → 404 (notFound() 정상 동작)
+pnpm run generate/render:generated/qa → 회귀 없음 확인 (1080x1920, 28.05s 유지)
+```
+
+### 사용한 AI 도구/기능
+
+| 도구 | 용도 |
+|---|---|
+| Plan Mode + Plan 서브에이전트 | Next.js 도입이라는 구조적 결정을 코드를 만들기 전에 먼저 설계·검증. 특히 "Next.js가 tsconfig.json을 자동 덮어쓴다"는, 직접 실행해보지 않으면 놓치기 쉬운 충돌 지점을 Plan 에이전트가 사전에 짚어줬다 |
+| AskUserQuestion | "UI 먼저 vs 이미지 Provider 먼저"라는 제품 우선순위 결정을 사용자에게 위임 |
+| Bash 백그라운드 실행 | `next dev` 서버를 백그라운드로 띄운 뒤 `curl`로 라우트를 검증하고, 렌더링/QA 회귀 확인도 백그라운드로 돌려 대기 시간을 문서 작업과 병행 |
+
+### 겪은 이슈
+
+- **`server-only` 패키지가 Vitest에서 무조건 에러를 던짐**: `server-only`는 런타임 체크가 아니라 Next.js 번들러가 클라이언트 번들에서만 에러가 나도록 특수 처리하는 패키지라, Vitest(순수 Node)에서 그냥 import하면 항상 예외가 발생했다. `vitest.config.ts`에 `server-only`를 빈 스텁(`tests/stubs/server-only.ts`)으로 alias 처리해 해결했다 — Next.js 커뮤니티에서 흔히 쓰는 우회법이다. 처음엔 "테스트가 왜 이 파일에서만 깨지지?"에서 시작해 원인을 추적한 케이스였다.
+- **브라우저 자동화 도구 부재**: 이 환경엔 Playwright 등이 없어 실제 브라우저 렌더링(레이아웃/CSS 적용 여부)은 확인하지 못했다. `curl`로 서버 렌더링 HTML과 라우팅 상태 코드만 검증했다. 근거와 한계는 ADR-009에 남겼다.
+
+### 왜 이렇게 결정했나
+
+Next.js 공존 방식과 Playwright 미도입 근거는 [DECISIONS.md](./DECISIONS.md) ADR-008, ADR-009 참고.
+
+---
+
+<!-- Phase 4 이후 섹션은 아래에 이어서 추가됩니다 -->

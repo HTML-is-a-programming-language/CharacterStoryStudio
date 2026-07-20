@@ -66,4 +66,20 @@
 
 ---
 
+## ADR-008. Phase 3: Next.js를 모노레포 분리 없이 기존 패키지에 공존시킨다
+
+- **상태**: 확정
+- **배경**: ADR-004는 "Next.js는 필요해질 때까지 도입하지 않는다"고 결정하며 "이후 Next.js 앱이 추가되면 Remotion 패키지를 별도 워크스페이스로 재배치하는 리팩터링이 한 번 필요할 수 있다"고 예고했다. Phase 3에서 컨셉 선택 UI가 실제로 필요해져 Next.js 도입 시점이 왔다.
+- **결정**: 모노레포(pnpm workspace) 분리는 하지 않고, 기존 단일 `package.json`에 Next.js 14(App Router, React 18.3.1 유지)를 추가했다. 실질적 충돌은 Next.js가 `tsconfig.json`을 자동으로 덮어쓰는 동작뿐이었는데, `tsconfig.web.json`(기존 tsconfig를 extends)을 분리하고 `next.config.mjs`의 `typescript.tsconfigPath`로 지정해 해결했다. `pnpm run typecheck`는 두 tsconfig를 모두 검사하도록 확장했다. Provider 호출은 `src/pipeline/sampleConversationPipeline.ts`(`server-only`)로만 격리해, `app/**`의 어떤 컴포넌트도 `MockStoryProvider`를 직접 import하지 않는다.
+- **결과**: `next build`/`pnpm run render`/`pnpm run generate`/`pnpm run qa`가 같은 저장소 안에서 서로 간섭 없이 전부 정상 동작함을 확인했다(둘 다 typecheck 통과, 둘 다 각자의 산출물 생성 성공). 모노레포 전환은 다음 조건 중 하나가 생기면 재검토한다: (1) Next.js 전용 무거운 의존성(Supabase, BullMQ 등)이 늘어나 패키지가 비대해질 때, (2) tsconfig 분리로도 해결 안 되는 실제 충돌이 발생할 때.
+
+## ADR-009. Phase 3: Playwright E2E는 도입하지 않는다
+
+- **상태**: 확정
+- **배경**: PROJECT_BRIEF.md 기술 스택에는 Playwright(E2E)가 포함되어 있었지만, 현재 개발/실행 환경에는 브라우저 자동화 도구가 설치되어 있지 않다.
+- **결정**: 이번 Phase의 UI 검증은 `pnpm run typecheck`(2종), `pnpm run test`(vitest), `pnpm exec next build`, 그리고 `next dev` 기동 후 `curl`로 세 라우트(`/`, 유효한 `/story/[id]`, 존재하지 않는 `/story/[id]`→404) 응답을 확인하는 것으로 대체한다. Playwright 도입은 실제 브라우저 자동화가 가능한 환경이 확보되거나, 상호작용이 복잡해져(폼 제출, 클라이언트 상태 등) curl만으로는 부족해질 때 재검토한다.
+- **결과**: 서버 렌더링 결과(HTML)와 라우팅 동작은 검증했지만, 실제 브라우저에서의 시각적 렌더링(레이아웃 깨짐, CSS 적용 여부 등)은 확인하지 못했다는 한계가 남는다. 포트폴리오 문서에 이 한계를 명시한다.
+
+---
+
 <!-- 이후 Phase에서 결정한 사항은 이 아래에 계속 추가합니다 -->
