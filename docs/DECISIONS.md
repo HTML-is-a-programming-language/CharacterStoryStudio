@@ -124,4 +124,18 @@
 
 ---
 
+## ADR-014. 실제 렌더링 트리거: 동기 Route Handler + 서버측 재검증, Remotion 패키지는 webpack external 처리
+
+- **상태**: 확정
+- **배경**: "남은 기능적 다음 단계" 중 실제 렌더링 트리거를 선택했다. 모든 씬이 승인되면 화면에 안내 문구만 뜨던 것을, 실제로 Remotion 렌더링을 실행해 MP4를 내려받게 만들어야 했다.
+- **결정**:
+  1. **동기 처리**: 큐/워커 없이 Next.js Route Handler(`app/story/[conceptId]/render/route.ts`)가 요청을 받아 그 자리에서 렌더링하고 완료되면 파일을 응답으로 스트리밍한다. 로컬 1인 데모 범위이므로 비동기 작업 큐(BullMQ 등, PROJECT_BRIEF가 언급했던)는 여전히 도입하지 않는다 — 도입 시점은 실제 다중 사용자/오래 걸리는 작업이 생길 때로 미룬다.
+  2. **서버측 재검증**: "모든 씬 승인" 여부를 클라이언트가 아니라 Route Handler 안에서 다시 확인한다. URL을 직접 조작해 미승인 상태로 렌더링을 시도하면 400을 반환한다.
+  3. **CLI 재사용 대신 프로그래매틱 API 사용**: `remotion render` CLI를 자식 프로세스로 spawn하는 대신 `@remotion/bundler`/`@remotion/renderer`의 JS API(`bundle`/`selectComposition`/`renderMedia`)를 직접 호출한다. Windows에서 `pnpm`/`.cmd` 래퍼를 자식 프로세스로 spawn하는 것보다 크로스플랫폼으로 더 안전하다고 판단했다.
+  4. **Next 웹팩과의 충돌 해결**: `@remotion/bundler`는 그 자체로 웹팩을 다시 실행하는 도구라, Next의 웹팩이 이걸 또 번들링하려 하면 깨진다("Self-reference dependency" 에러로 실제로 빌드 실패를 겪었다). `next.config.mjs`의 `experimental.serverComponentsExternalPackages`에 `@remotion/bundler`/`@remotion/renderer`를 등록해 Next가 이 패키지들을 번들링하지 않고 런타임에 `require`만 하도록 해결했다.
+  5. **번들 캐시**: 프로세스 생명주기 동안 Remotion 번들을 한 번만 만들어 재사용한다(요청마다 재번들링 방지). 다만 실측해보니 번들링은 전체 렌더링 시간의 병목이 아니었다(아래 결과 참고) — 그래도 불필요한 재작업을 막는다는 점에서 남겨둔다.
+- **결과**: 실제 HTTP 요청으로 렌더링→다운로드→QA까지 전부 성공을 확인했다(1080×1920, 28.05초, 1.7MB). 다만 요청 1건에 42~50초가 걸린다 — 로컬 데모로는 괜찮지만, 실제 서비스라면 요청이 오래 걸리는 동안 서버가 막힌다는 한계가 있다(비동기 큐가 필요해지는 시점의 신호로 기록해둔다).
+
+---
+
 <!-- 이후 Phase에서 결정한 사항은 이 아래에 계속 추가합니다 -->

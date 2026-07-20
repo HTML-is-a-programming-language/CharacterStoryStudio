@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildRenderHref,
   buildStoryHref,
   bumpVariant,
   parseStoryQueryState,
@@ -63,5 +64,12 @@ describe("storyQueryState", () => {
   it("아무 상태도 없으면 쿼리 없이 순수 경로만 반환한다", () => {
     const href = buildStoryHref("concept-calm", parseStoryQueryState({}));
     expect(href).toBe("/story/concept-calm");
+  });
+
+  it("buildRenderHref는 /render 하위 경로에 같은 쿼리를 붙인다", () => {
+    const state = parseStoryQueryState({ approved: "scene-1,scene-2" });
+    const href = buildRenderHref("concept-romantic", state);
+
+    expect(href).toBe("/story/concept-romantic/render?approved=scene-1%2Cscene-2");
   });
 });

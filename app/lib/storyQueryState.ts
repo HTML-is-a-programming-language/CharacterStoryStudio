@@ -40,7 +40,7 @@ export function parseStoryQueryState(searchParams: StoryPageSearchParams): Story
   return { approved, variants };
 }
 
-export function buildStoryHref(conceptId: string, state: StoryQueryState): string {
+function buildQueryString(state: StoryQueryState): string {
   const params = new URLSearchParams();
 
   if (state.approved.size > 0) {
@@ -52,8 +52,17 @@ export function buildStoryHref(conceptId: string, state: StoryQueryState): strin
     params.set("variant", variantEntries.map(([sceneId, value]) => `${sceneId}:${value}`).join(","));
   }
 
-  const query = params.toString();
+  return params.toString();
+}
+
+export function buildStoryHref(conceptId: string, state: StoryQueryState): string {
+  const query = buildQueryString(state);
   return `/story/${conceptId}${query ? `?${query}` : ""}`;
+}
+
+export function buildRenderHref(conceptId: string, state: StoryQueryState): string {
+  const query = buildQueryString(state);
+  return `/story/${conceptId}/render${query ? `?${query}` : ""}`;
 }
 
 export function toggleApproved(state: StoryQueryState, sceneId: string): StoryQueryState {

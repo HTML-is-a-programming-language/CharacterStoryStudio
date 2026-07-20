@@ -8,9 +8,15 @@ importers:
 
   .:
     dependencies:
+      '@remotion/bundler':
+        specifier: 4.0.290
+        version: 4.0.290(lightningcss@1.32.0)(postcss@8.5.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@remotion/cli':
         specifier: 4.0.290
         version: 4.0.290(lightningcss@1.32.0)(postcss@8.5.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@remotion/renderer':
+        specifier: 4.0.290
+        version: 4.0.290(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       next:
         specifier: ^14.2.35
         version: 14.2.35(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
