@@ -7,10 +7,10 @@ const TONE_LABEL: Record<StoryConcept["tone"], string> = {
   bittersweet: "여운",
 };
 
-export function ConceptCard({ concept }: { concept: StoryConcept }) {
+export function ConceptCard({ concept, href }: { concept: StoryConcept; href: string }) {
   return (
     <Link
-      href={`/story/${concept.id}`}
+      href={href}
       className="flex flex-col justify-between rounded-xl border border-white/10 bg-white/5 p-5 transition hover:border-white/30 hover:bg-white/10"
     >
       <div>

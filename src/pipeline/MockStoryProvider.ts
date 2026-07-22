@@ -1,7 +1,7 @@
 import { SceneSchema, StoryPlanSchema, type Scene, type StoryPlan } from "../schema";
 import { getImageProvider } from "./getImageProvider";
 import type { StoryProvider } from "./StoryProvider";
-import type { Conversation, ConversationAnalysis, StoryConcept } from "./types";
+import { ConversationAnalysisEmptyError, type Conversation, type ConversationAnalysis, type StoryConcept } from "./types";
 import { distributeDurationFrames, pickFromCycle } from "./utils";
 
 /**
@@ -79,9 +79,7 @@ export const MockStoryProvider: StoryProvider = {
       }));
 
     if (events.length === 0) {
-      throw new Error(
-        "분석 가능한 감정적 이벤트를 찾지 못했습니다. 대화 내용을 확인하거나 다른 대화를 선택해주세요.",
-      );
+      throw new ConversationAnalysisEmptyError();
     }
 
     return {

@@ -2,8 +2,10 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { NextResponse, type NextRequest } from "next/server";
-import { getStoryboardForConcept } from "../../../../src/pipeline/sampleConversationPipeline";
+import { getStoryboardForConcept } from "../../../../src/pipeline/conversationPipeline";
+import { ConversationAnalysisEmptyError } from "../../../../src/pipeline/types";
 import { renderStoryboardToFile } from "../../../../src/rendering/renderStoryboard";
+import { decodeConversation } from "../../../lib/conversationQueryState";
 import { parseStoryQueryState } from "../../../lib/storyQueryState";
 
 /**
@@ -14,8 +16,18 @@ import { parseStoryQueryState } from "../../../lib/storyQueryState";
 export async function GET(request: NextRequest, { params }: { params: { conceptId: string } }) {
   const searchParams = Object.fromEntries(request.nextUrl.searchParams);
   const queryState = parseStoryQueryState(searchParams);
+  const conversation = decodeConversation(queryState.conversation);
 
-  const result = await getStoryboardForConcept(params.conceptId, queryState.variants);
+  let result;
+  try {
+    result = await getStoryboardForConcept(params.conceptId, queryState.variants, conversation);
+  } catch (error) {
+    if (error instanceof ConversationAnalysisEmptyError) {
+      return NextResponse.json({ error: error.message }, { status: 422 });
+    }
+    throw error;
+  }
+
   if (!result) {
     return NextResponse.json({ error: "존재하지 않는 컨셉입니다." }, { status: 404 });
   }

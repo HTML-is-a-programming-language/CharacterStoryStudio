@@ -371,4 +371,50 @@ Mock 채팅 설계와 Server Action 도입 근거는 [DECISIONS.md](./DECISIONS.
 
 ---
 
+## Phase 9 — 채팅 내용을 실제 분석 파이프라인에 반영
+
+### 무엇을 했나
+
+1. **Plan Mode + Plan 서브에이전트로 설계 검증**: 인코딩 방식(percent-encoding vs base64url)을 실제 샘플 대화로 실측 비교하게 했다 — 감으로 판단하지 않고 숫자로 확인했다(원본 1,539자 → percent-encoding 4,127자 → base64url 2,575자, 38% 절감).
+2. **URL 토큰으로 대화 전파**: `app/lib/conversationQueryState.ts`(신규)가 대화 인코딩/디코딩을 전담한다. 손상되거나 너무 긴 토큰은 예외 없이 조용히 고정 샘플로 폴백한다(Demo Mode 보장, ADR-002).
+3. **파이프라인 리네이밍**: `sampleConversationPipeline.ts` → `conversationPipeline.ts`. "샘플 전용"에서 "대화 있으면 그걸, 없으면 폴백"으로 본질이 바뀐 만큼 이름도 맞췄다. import 3곳, 테스트 파일도 함께 리네이밍했다.
+4. **URL 전파 체인 완성**: 홈의 컨셉 카드 → 스토리보드 승인/재생성 → 렌더링 다운로드까지, 대화 토큰이 한 번도 끊기지 않고 이어지게 `StoryQueryState`를 확장했다.
+5. **에러를 정직하게 구분**: "감정 포인트를 못 찾음"(사용자가 채팅에서 대사를 과하게 고치면 생길 수 있는 정상적인 케이스)과 "내부 불변식이 깨짐"(진짜 버그)을 `ConversationAnalysisEmptyError`라는 전용 클래스로 나눠, 전자만 친절한 안내 화면으로 감싸고 후자는 숨기지 않는다.
+6. **실제 엔드투엔드 검증**: 커스텀 대화(다른 캐릭터명, 다른 대사)를 만들어 홈→컨셉→스토리보드→승인→실제 렌더링까지 curl로 전부 실행해, 최종 MP4에 그 커스텀 대화 내용이 실제로 반영됐는지까지 확인했다(QA 통과: 1080×1920, 28.05초).
+
+### 실행 결과
+
+```
+pnpm run typecheck → 통과 (2 tsconfig)
+pnpm run test        → 54 passed (conversationQueryState 6, conversationPipeline 6, storyQueryState 9, chatActions 3 포함)
+pnpm exec next build → 성공 ("/"가 searchParams를 읽으므로 정적→동적으로 전환됨)
+
+curl 검증:
+  GET /                                          → 기본(하람) 표시
+  GET /?conversation=<커스텀 토큰>                  → 커스텀 캐릭터명("이앤투이") 표시
+  GET /?conversation=broken                       → 조용히 기본으로 폴백
+  GET /?conversation=<이벤트 0개 대화>               → 크래시 대신 "감정 포인트를 못 찾았다" 안내
+  홈의 컨셉 카드 href                                → conversation 토큰이 그대로 붙어 전파됨
+  GET /story/concept-calm?conversation=<커스텀>      → 커스텀 대사("좋아해왔어") 표시
+  GET /story/concept-calm/render?approved=scene-1&conversation=<커스텀> → 200, 1.37MB, 49.8초
+  pnpm run qa <다운로드된 mp4>                        → ✓ 1080x1920, ✓ 28.05초
+```
+
+### 사용한 AI 도구/기능
+
+| 도구 | 용도 |
+|---|---|
+| Plan Mode + Plan 서브에이전트 | 인코딩 방식을 실측으로 검증받고, 파일 리네이밍·에러 클래스 분리 같은 세부 설계까지 미리 다듬음 |
+| Bash(node -e로 토큰 수동 생성) | 브라우저 없이도 실제 인코딩 스킴과 동일한 토큰을 만들어 전체 체인을 curl로 실측 |
+
+### 겪은 이슈
+
+- 없음 — 새 인프라(DB, 큐, 외부 API)를 전혀 추가하지 않고 기존 URL 상태 패턴(ADR-010)만 확장한 덕분에, 이번 Phase는 새로운 종류의 문제 없이 순조롭게 끝났다.
+
+### 왜 이렇게 결정했나
+
+인코딩 방식 실측 근거, 파일 리네이밍 이유, 에러 클래스 분리 이유는 [DECISIONS.md](./DECISIONS.md) ADR-017 참고.
+
+---
+
 <!-- 다음 작업 섹션은 아래에 이어서 추가됩니다 -->

@@ -72,4 +72,24 @@ describe("storyQueryState", () => {
 
     expect(href).toBe("/story/concept-romantic/render?approved=scene-1%2Cscene-2");
   });
+
+  it("conversation 토큰은 toggleApproved/bumpVariant를 거쳐도 그대로 유지된다", () => {
+    const state = parseStoryQueryState({ conversation: "abc123" });
+    expect(state.conversation).toBe("abc123");
+
+    const afterToggle = toggleApproved(state, "scene-1");
+    expect(afterToggle.conversation).toBe("abc123");
+
+    const afterBump = bumpVariant(afterToggle, "scene-1");
+    expect(afterBump.conversation).toBe("abc123");
+  });
+
+  it("buildStoryHref/buildRenderHref는 conversation 쿼리도 함께 직렬화한다", () => {
+    const state = parseStoryQueryState({ conversation: "abc123" });
+
+    expect(buildStoryHref("concept-calm", state)).toBe("/story/concept-calm?conversation=abc123");
+    expect(buildRenderHref("concept-calm", state)).toBe(
+      "/story/concept-calm/render?conversation=abc123",
+    );
+  });
 });

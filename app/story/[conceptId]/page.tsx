@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { getStoryboardForConcept } from "../../../src/pipeline/sampleConversationPipeline";
+import { notFound, redirect } from "next/navigation";
+import { getStoryboardForConcept, type StoryboardResult } from "../../../src/pipeline/conversationPipeline";
+import { ConversationAnalysisEmptyError } from "../../../src/pipeline/types";
 import { SceneCard } from "../../components/SceneCard";
+import { decodeConversation } from "../../lib/conversationQueryState";
 import {
   buildRenderHref,
   buildStoryHref,
@@ -19,7 +21,18 @@ export default async function StoryboardPage({
   searchParams: StoryPageSearchParams;
 }) {
   const queryState = parseStoryQueryState(searchParams);
-  const result = await getStoryboardForConcept(params.conceptId, queryState.variants);
+  const conversation = decodeConversation(queryState.conversation);
+  const homeHref = queryState.conversation ? `/?conversation=${queryState.conversation}` : "/";
+
+  let result: StoryboardResult | undefined;
+  try {
+    result = await getStoryboardForConcept(params.conceptId, queryState.variants, conversation);
+  } catch (error) {
+    if (error instanceof ConversationAnalysisEmptyError) {
+      redirect(homeHref);
+    }
+    throw error;
+  }
 
   if (!result) {
     notFound();
@@ -32,7 +45,7 @@ export default async function StoryboardPage({
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
-      <Link href="/" className="text-sm text-white/50 hover:text-white/80">
+      <Link href={homeHref} className="text-sm text-white/50 hover:text-white/80">
         ← 다른 컨셉 선택
       </Link>
       <h1 className="mt-4 text-3xl font-bold">{concept.title}</h1>

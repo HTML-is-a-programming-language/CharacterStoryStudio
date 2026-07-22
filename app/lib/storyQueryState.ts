@@ -6,6 +6,9 @@
 export interface StoryQueryState {
   approved: ReadonlySet<string>;
   variants: Readonly<Record<string, number>>;
+  /** 채팅에서 만들어진 대화의 인코딩된 토큰(opaque). 여기서는 디코딩하지 않는다 — 그건
+   *  app/lib/conversationQueryState.ts의 책임이다. 그냥 그대로 실어 나른다. */
+  conversation?: string;
 }
 
 export type StoryPageSearchParams = Record<string, string | string[] | undefined>;
@@ -37,7 +40,9 @@ export function parseStoryQueryState(searchParams: StoryPageSearchParams): Story
     }
   }
 
-  return { approved, variants };
+  const conversation = firstValue(searchParams.conversation);
+
+  return { approved, variants, conversation: conversation.length > 0 ? conversation : undefined };
 }
 
 function buildQueryString(state: StoryQueryState): string {
@@ -50,6 +55,10 @@ function buildQueryString(state: StoryQueryState): string {
   const variantEntries = Object.entries(state.variants).filter(([, value]) => value > 0);
   if (variantEntries.length > 0) {
     params.set("variant", variantEntries.map(([sceneId, value]) => `${sceneId}:${value}`).join(","));
+  }
+
+  if (state.conversation) {
+    params.set("conversation", state.conversation);
   }
 
   return params.toString();
@@ -72,7 +81,7 @@ export function toggleApproved(state: StoryQueryState, sceneId: string): StoryQu
   } else {
     approved.add(sceneId);
   }
-  return { approved, variants: state.variants };
+  return { approved, variants: state.variants, conversation: state.conversation };
 }
 
 export function bumpVariant(state: StoryQueryState, sceneId: string): StoryQueryState {
@@ -80,5 +89,6 @@ export function bumpVariant(state: StoryQueryState, sceneId: string): StoryQuery
   return {
     approved: state.approved,
     variants: { ...state.variants, [sceneId]: current + 1 },
+    conversation: state.conversation,
   };
 }

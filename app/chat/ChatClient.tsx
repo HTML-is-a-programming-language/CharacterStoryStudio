@@ -15,6 +15,7 @@ export function ChatClient({
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [input, setInput] = useState(initialSuggestedLine ?? "");
   const [finished, setFinished] = useState(initialSuggestedLine === null);
+  const [homeHref, setHomeHref] = useState("/");
   const [isPending, startTransition] = useTransition();
 
   function handleSend() {
@@ -24,13 +25,17 @@ export function ChatClient({
     }
 
     startTransition(async () => {
-      const { userMessage, characterReply, nextSuggestedLine } = await sendChatMessage(messages, text);
+      const { userMessage, characterReply, nextSuggestedLine, conversationHref } = await sendChatMessage(
+        messages,
+        text,
+      );
 
       setMessages((prev) => (characterReply ? [...prev, userMessage, characterReply] : [...prev, userMessage]));
 
       if (!characterReply || nextSuggestedLine === null) {
         setFinished(true);
         setInput("");
+        setHomeHref(conversationHref ?? "/");
         return;
       }
       setInput(nextSuggestedLine);
@@ -60,7 +65,7 @@ export function ChatClient({
       {finished ? (
         <div className="mt-6 rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">
           <p>대화를 마쳤어요.</p>
-          <Link href="/" className="mt-2 inline-block font-medium text-emerald-100 hover:underline">
+          <Link href={homeHref} className="mt-2 inline-block font-medium text-emerald-100 hover:underline">
             이 대화로 컨셉 만들러 가기 →
           </Link>
         </div>
