@@ -190,4 +190,25 @@ Next.js가 Route Handler 파일마다 독립적으로 컴파일해서 같은 소
 
 ---
 
+## 18. 렌더링 결과 이미지/오디오 누락 버그 진단 + 수정
+
+사용자가 `out/generated.mp4`에 텍스트만 나오고 이미지·오디오가 없다고 제보했다(Plan Mode).
+읽기 전용으로 프레임 추출(Remotion 번들 ffmpeg)과 `silencedetect`로 증상을 먼저 재현/확인한
+뒤, 두 가지 가설(CSS `background-image`가 Remotion 헤드리스 캡처를 안 기다린다는 것, TTS
+오디오의 `audio/mp3` MIME이 비표준이라는 것)을 세워 계획을 승인받고 수정했다. 그런데 수정
+후에도 이미지가 여전히 안 보여서 더 팠다 — `remotion still`로 mp4 인코딩을 배제하고, 씬
+컴포넌트에 `scene.imageDataUri`의 실제 타입/값/키를 화면에 찍는 임시 디버그 코드를 넣어
+원인을 직접 관찰했다. 진짜 원인은 `scripts/generate-story.ts`가 저장하는 JSON이 Remotion
+Composition이 기대하는 `{ story: ... }` 모양으로 감싸져 있지 않아서, `render:generated`
+CLI가 실제 생성 데이터를 한 번도 읽지 못하고 항상 Phase 1 고정 샘플만 렌더링해온 것이었다.
+props를 올바르게 감싼 뒤 mp3 오디오만 따로 재테스트해서 처음의 mp3 MIME 가설이 틀렸다는
+것도 스스로 반박했다(무음 증상은 전적으로 props 문제였다) — 이미 해둔 WAV 전환은 무해하고
+더 표준적이라 유지하되, 코드 주석에 "실제로는 불필요했음"을 정직하게 남겼다. 최종적으로
+`scripts/generate-story.ts`(props 래핑), `StoryComposition.tsx`(Remotion `<Img>` 사용,
+웹 앱 실제 경로에선 여전히 유효한 버그였음), `OpenAiTtsProvider.ts`(WAV 유지) 세 곳을
+고쳤고, 실제 API로 재생성→재렌더링해서 이미지가 실제로 보이는 것과 오디오에 무음 구간이
+없는 것을 직접 확인한 뒤 real 스위치를 다시 끄고 Mock 데모 상태로 되돌렸다.
+
+---
+
 <!-- 이후 답변도 이 아래에 이어서 추가합니다 -->

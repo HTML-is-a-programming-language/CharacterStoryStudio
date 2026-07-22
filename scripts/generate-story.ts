@@ -18,7 +18,11 @@ async function main(): Promise<void> {
   const storyboard = await MockStoryProvider.generateStoryboard(chosenConcept, analysis, conversation);
 
   const outPath = path.resolve("src/data/generated-story.json");
-  writeFileSync(outPath, `${JSON.stringify(storyboard, null, 2)}\n`, "utf-8");
+  // Remotion Composition의 defaultProps가 { story: ... } 형태라({ story: defaultStory },
+  // src/Root.tsx), `--props=<이 파일>`로 넘길 때도 같은 모양으로 감싸야 한다. 바로 StoryPlan을
+  // 저장하면 Composition이 이 파일 내용을 못 읽고 조용히 defaultProps(Phase 1 고정 샘플)로
+  // 렌더링해버린다 — 렌더링 결과에 이미지/오디오가 하나도 안 나오는 버그의 원인이었다(ADR-021).
+  writeFileSync(outPath, `${JSON.stringify({ story: storyboard }, null, 2)}\n`, "utf-8");
 
   console.log(`분석된 이벤트: ${analysis.events.length}개`);
   console.log(`생성된 컨셉: ${concepts.map((c) => `${c.title}(${c.tone})`).join(", ")}`);

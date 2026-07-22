@@ -6,7 +6,7 @@ export interface GenerateNarrationInput {
 }
 
 export interface GeneratedAudio {
-  /** data: URI (예: data:audio/wav;base64,... 또는 data:audio/mp3;base64,...) */
+  /** data: URI (예: data:audio/wav;base64,...) — WAV로 통일한다(ADR-021). */
   dataUri: string;
 }
 

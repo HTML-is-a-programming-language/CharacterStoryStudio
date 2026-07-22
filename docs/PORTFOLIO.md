@@ -536,4 +536,35 @@ Redis 대신 인메모리 방식을 택한 이유, globalThis 수정 근거는 [
 
 ---
 
+## 버그 수정 — 렌더링 결과에 이미지/오디오가 안 나오던 문제
+
+### 무엇을 했나
+
+1. **사용자 제보로 시작**: `out/generated.mp4`를 직접 재생해보니 텍스트만 나오고 이미지·오디오가 전혀 없다는 제보를 받고, Plan Mode로 전환해 읽기 전용 진단부터 시작했다.
+2. **1차 가설 두 개를 세우고 실측으로 검증**: (1) `StoryComposition.tsx`가 씬 배경을 CSS `background-image`로 그리는데 Remotion 헤드리스 캡처는 이걸 기다려주지 않는다는 것, (2) `OpenAiTtsProvider.ts`가 만드는 `audio/mp3` MIME이 비표준이라는 것. Remotion 번들 ffmpeg로 프레임을 추출하고 `ffprobe`/`silencedetect`로 오디오를 직접 까봐서 두 가설 다 그럴듯해 보였다.
+3. **두 가설을 모두 고쳤는데도 이미지가 여전히 안 보여서 더 팠다**: `remotion still`로 단일 프레임만 따로 렌더링해서 mp4 인코딩 파이프라인을 배제했고, 씬 컴포넌트에 `scene.imageDataUri`의 실제 타입/값/키 목록을 화면에 그대로 찍는 임시 디버그 코드를 넣어 원인을 좁혔다. `keys=[...]` 라벨에 `imageDataUri`/`audioDataUri`/`sourceMessageIds`/`imageAlt` 네 필드가 통째로 빠져 있는 걸 확인 — 정확히 Phase 1 고정 샘플(`sample-story.json`)에 없는 필드들이었다.
+4. **진짜 원인 특정**: `Root.tsx`의 Composition은 `{ story: ... }`로 감싼 props를 기대하는데, `scripts/generate-story.ts`는 StoryPlan을 감싸지 않고 그대로 저장했다. `render:generated`가 이 파일을 `--props`로 넘기면 `calculateMetadata`가 읽는 `props.story`는 계속 고정 샘플로 남아 있었던 것 — `pnpm run generate`로 진짜 이미지·오디오를 만들어도 CLI 렌더링은 그걸 한 번도 읽은 적이 없었다.
+5. **mp3 가설을 재검증해서 스스로 반박**: props를 올바르게 감싼 뒤 mp3 오디오만 따로 다시 테스트해보니 정상 재생됐다 — 처음의 "오디오 전체 무음"은 mp3 MIME과 무관하게 전적으로 props 불일치 때문이었다. 이미 되돌리기엔 무해하고 더 안전한 WAV 전환은 유지하되, 코드 주석에 "실제로는 불필요했음"을 정직하게 남겼다.
+6. **최종 수정 3가지**: `scripts/generate-story.ts`가 `{ story: ... }`로 감싸도록 수정, `StoryComposition.tsx`가 Remotion `<Img>`로 이미지를 그리도록 수정(웹 앱의 실제 렌더링 경로에선 여전히 유효한 버그였음), `OpenAiTtsProvider.ts`는 WAV 유지.
+7. **라이브 재검증**: `.env.local`을 임시로 다시 켜고 실제 API로 재생성→재렌더링해서, 프레임 추출로 이미지가 실제로 보이는 것과 `silencedetect`로 28초 전체에 무음 구간이 없는 것을 직접 확인한 뒤, real 스위치를 다시 끄고 Mock으로 재생성/재렌더링해 데모 상태로 되돌렸다.
+
+### 사용한 AI 도구/기능
+
+| 도구 | 용도 |
+|---|---|
+| Plan Mode | 코드를 건드리기 전 읽기 전용으로 원인을 먼저 좁히고, 확정된 근거를 바탕으로 수정 계획을 세워 승인받음 |
+| Remotion 번들 ffmpeg(`silencedetect`, 프레임 추출) | 렌더링 결과물을 직접 까서 "정말로 안 보이는지/안 들리는지"를 데이터로 확인 |
+| `remotion still` + 임시 디버그 라벨 | mp4 인코딩 파이프라인을 배제하고 컴포넌트가 실제로 받는 props를 화면에 직접 찍어 원인을 좁힘 |
+
+### 겪은 이슈
+
+- **첫 가설이 그럴듯해도 실측 재검증이 필요하다**: mp3 MIME 문제는 처음엔 근거(무음 확인, 비표준 MIME)가 있어 보였지만, 실제로는 props 불일치라는 완전히 다른 버그에 가려진 착시였다. 원인을 하나 고쳤다고 증상이 사라졌다고 바로 결론 내리지 않고, 각 가설을 독립적으로 재현/반증해본 것이 잘못된 결론을 문서에 남기는 걸 막아줬다.
+- **CLI 검증 스크립트와 실제 웹 앱 경로가 서로 다른 방식으로 props를 넘기고 있었다**: `renderStoryboardToFile`(웹 앱)은 처음부터 올바르게 감싸 넘기고 있었고, `scripts/generate-story.ts`(CLI 검증용)만 다른 모양이었다 — 이 프로젝트에서 "같은 데이터를 다루는 두 경로가 은근히 다른 계약을 가질 수 있다"는 걸 보여준 사례.
+
+### 왜 이렇게 결정했나
+
+원인 분석과 근거는 [DECISIONS.md](./DECISIONS.md) ADR-021 참고.
+
+---
+
 <!-- 다음 작업 섹션은 아래에 이어서 추가됩니다 -->

@@ -205,4 +205,20 @@
 
 ---
 
+## ADR-021. 렌더링 결과에 이미지/오디오가 안 나오던 버그 — 진짜 원인은 CLI props 형태 불일치
+
+- **상태**: 확정
+- **배경**: 사용자가 `out/generated.mp4`(`pnpm run generate` + `pnpm run render:generated`로 만든 결과물)를 직접 재생해보니 텍스트만 나오고 이미지도 오디오도 안 나온다고 제보했다. 처음엔 두 가지를 의심했다 — (1) `src/StoryComposition.tsx`가 씬 배경을 순수 CSS `background-image`(`sceneStyle.ts`)로 그리는데, Remotion의 헤드리스 프레임 캡처는 자신의 `<Img>` 컴포넌트가 등록하는 `delayRender`/`continueRender`만 기다리고 CSS 배경 이미지 디코딩은 기다리지 않는다는 점, (2) `OpenAiTtsProvider.ts`가 `data:audio/mp3;base64,...`로 오디오를 만드는데 `audio/mp3`가 등록된 MIME이 아니라는 점(표준은 `audio/mpeg`). 둘 다 고치고 다시 렌더링했는데도 여전히 이미지가 안 보여서 더 깊이 파봤다.
+- **진짜 원인**: `src/Root.tsx`의 `<Composition>`은 `defaultProps={{ story: defaultStory }}`처럼 `story` 키로 감싼 모양을 기대하고, `calculateMetadata`도 `props.story`를 읽는다. `src/rendering/renderStoryboard.ts`(웹 앱의 실제 렌더링 경로)는 `inputProps: { story }`로 정확히 이 모양을 맞춰 호출하지만, `scripts/generate-story.ts`는 `writeFileSync(outPath, JSON.stringify(storyboard, ...))`로 **StoryPlan을 감싸지 않고 그대로** 저장했다. `package.json`의 `render:generated`는 이 파일을 `--props=src/data/generated-story.json`로 그대로 넘기는데, 감싸지 않은 최상위 필드(`title/fps/scenes/musicDataUri`)는 `story`가 아닌 별도 키로 들어가버려서 `calculateMetadata`가 읽는 `props.story`는 계속 `defaultProps`의 `story`(= Phase 1 고정 샘플, `sample-story.json`)로 남아 있었다. 즉 `pnpm run generate`로 진짜 데이터를 만들어도 `render:generated`는 그 데이터를 한 번도 읽은 적이 없었고, 항상 이미지·오디오가 아예 없는 고정 샘플을 렌더링해온 것이다. `remotion still`로 직접 확인했다 — 씬 객체에 디버그 라벨을 임시로 붙여보니 `imageDataUri`/`audioDataUri`/`sourceMessageIds`/`imageAlt`(모두 고정 샘플에는 없는 필드) 네 개가 통째로 빠져 있었고, props를 `{ story: ... }`로 감싸자 즉시 정상적으로 나타났다.
+- **mp3 MIME 가설은 틀렸다**: props를 올바르게 감싼 뒤 mp3(`audio/mp3`) 오디오만 따로 다시 테스트해보니 **정상적으로 재생됐다** — `silencedetect`로 무음 구간이 전혀 없었다. 처음의 "오디오 전체가 무음" 증상은 mp3 MIME 문제가 아니라 전적으로 위 props 불일치 때문이었다(고정 샘플엔 오디오가 아예 없으니 당연히 무음). 이미 WAV로 바꾼 코드는 되돌리지 않았다 — 틀린 MIME(`audio/mp3`)을 안 쓰는 게 여전히 더 표준적이고, 이 파이프라인에서 실측 검증된 유일한 포맷(ADR-018)과 통일해두는 편이 안전하기 때문이다. 다만 `OpenAiTtsProvider.ts` 주석에 "이 변경은 실제로는 불필요했던 것으로 확인됨"을 명시했다 — 검증 없이 통과했다고 보고하지 않는다는 원칙(CLAUDE.md)에 따라 정확한 경위를 남긴다.
+- **`<Img>` 전환은 독립적으로 유효한 수정이다**: props 문제와는 별개로, `src/StoryComposition.tsx`의 `SceneView`를 Remotion의 `<Img>` 컴포넌트로 바꾼 것은 여전히 필요한 수정이다 — 웹 앱의 실제 렌더링 경로(`renderStoryboardToFile`)는 props를 처음부터 올바르게 감싸 넘기고 있었으므로, 실제 서비스에서 큰 실물 이미지(~3-4MB PNG)를 렌더링할 때 CSS `background-image`의 비동기 디코딩을 기다리지 않는 문제는 실재했을 것이다. `sceneStyle.ts`(Next.js `SceneCard`가 쓰는 일반 브라우저 DOM 경로)는 그대로 뒀다.
+- **결정**:
+  1. `scripts/generate-story.ts`가 `{ story: storyboard }`로 감싸서 저장하도록 고쳤다 — `renderStoryboardToFile`가 쓰는 모양과 통일.
+  2. `src/StoryComposition.tsx`의 `SceneView`가 `imageDataUri`가 있으면 CSS 배경 대신 Remotion `<Img>`를 쓰도록 바꿨다(디코딩을 실제로 기다리게 함). 없으면 기존 CSS 그라디언트 폴백 유지.
+  3. `OpenAiTtsProvider.ts`는 `response_format: "wav"`로 유지(불필요했음을 주석에 명시).
+- **결과**: `.env.local`을 임시로 다시 켜고(사용자가 이전에 채워둔 키 재사용) `pnpm run generate` → `pnpm run render:generated`로 실제 API 데이터를 다시 만들고 렌더링해서, Remotion 번들 ffmpeg로 프레임을 추출해 실제 일러스트가 보이는 것을 눈으로 확인했고, `silencedetect`로 오디오 트랙 전체(28초)에 무음 구간이 없는 것을 확인했다. 검증 후 `.env.local`의 real 스위치는 다시 꺼두고 Mock으로 재생성/재렌더링해 데모 상태로 되돌렸다.
+- **교훈**: vitest/typecheck/build는 모두 통과했지만 실제 렌더링 결과물의 시각적/청각적 정합성은 검증하지 못했다 — Phase 12(ADR-020)의 `globalThis` 버그와 같은 계열이다. 또한 첫 가설(mp3 MIME)이 그럴듯해 보여도 실측으로 재확인하지 않았다면 잘못된 원인을 문서에 남길 뻔했다 — 변수를 하나씩 통제해서 재현하는 것의 가치를 다시 확인했다.
+
+---
+
 <!-- 이후 Phase에서 결정한 사항은 이 아래에 계속 추가합니다 -->

@@ -3,9 +3,11 @@ import type { GenerateSceneImageInput, GeneratedSceneImage, ImageProvider } from
 /**
  * OpenAI Images API(gpt-image-1)를 호출하는 실제 Provider.
  *
- * 한계(TODO): 실제 API 키로 라이브 호출을 검증한 적이 없다(개발 환경에 키가 없음).
- * 요청/응답 형식은 공개 문서를 기준으로 작성했으며, 실제 배포 전에 진짜 키로 최소 1회
- * 수동 검증이 필요하다.
+ * 한계(TODO): 실제 API 키로 라이브 호출과 렌더링 결과물까지 검증했다(ADR-021). 다만 이
+ * Provider가 만드는 이미지(PNG, ~3MB)는 `imageDataUri`를 그대로 CSS `background-image`로
+ * 쓰면 Remotion 헤드리스 캡처에서 디코딩을 기다리지 않아 안 보이는 버그가 있었다 —
+ * `StoryComposition.tsx`가 Remotion의 `<Img>` 컴포넌트로 렌더링하도록 고쳤다. 이미지
+ * 생성 프롬프트/스타일 자체의 품질 튜닝은 여전히 향후 과제다.
  */
 
 const TONE_STYLE_HINT: Record<GenerateSceneImageInput["tone"], string> = {
