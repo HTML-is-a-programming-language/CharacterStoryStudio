@@ -1,19 +1,24 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import crypto from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { NextResponse, type NextRequest } from "next/server";
 import { getStoryboardForConcept } from "../../../../src/pipeline/conversationPipeline";
 import { ConversationAnalysisEmptyError } from "../../../../src/pipeline/types";
+import { createJob, markJobCompleted, markJobFailed } from "../../../../src/rendering/renderJobStore";
 import { renderStoryboardToFile } from "../../../../src/rendering/renderStoryboard";
+import type { StoryPlan } from "../../../../src/schema";
 import { decodeConversation } from "../../../lib/conversationQueryState";
 import { parseStoryQueryState } from "../../../lib/storyQueryState";
 
 /**
- * GET /story/:conceptId/render — 모든 씬이 승인된 스토리보드를 실제로 Remotion으로
- * 렌더링해 MP4를 응답으로 스트리밍한다. 렌더링에 20~30초 정도 걸린다(동기 처리, 큐 없음
- * — 로컬 데모 범위를 넘어서면 비동기 작업 큐가 필요하다는 걸 알고 있는 의도적 단순화다).
+ * POST /story/:conceptId/render — 모든 씬이 승인된 스토리보드의 렌더링 작업을 "시작"만
+ * 하고 즉시 202 + jobId를 반환한다(실제 렌더링은 백그라운드에서 계속 진행). 렌더링에
+ * 20~50초 정도 걸리는데, 요청을 그동안 붙잡아두지 않는다 — Next.js 서버가 그 시간 동안
+ * 다른 요청을 처리 못 하는 것도 막고, 서버리스 환경의 함수 실행 시간 제한 위험도 줄인다
+ * (ADR-020). 진행 상태는 /render/status, 결과물은 /render/download에서 jobId로 조회한다.
  */
-export async function GET(request: NextRequest, { params }: { params: { conceptId: string } }) {
+export async function POST(request: NextRequest, { params }: { params: { conceptId: string } }) {
   const searchParams = Object.fromEntries(request.nextUrl.searchParams);
   const queryState = parseStoryQueryState(searchParams);
   const conversation = decodeConversation(queryState.conversation);
@@ -41,26 +46,29 @@ export async function GET(request: NextRequest, { params }: { params: { conceptI
     );
   }
 
+  const jobId = crypto.randomUUID();
+  createJob(jobId);
+
+  // 의도적으로 await하지 않는다 — 이 요청은 작업을 등록만 하고 바로 응답한다.
+  runRenderJob(jobId, storyboard, concept.id).catch((error: unknown) => {
+    console.error(`[render] 작업 ${jobId} 실행 중 예상치 못한 오류:`, error);
+  });
+
+  return NextResponse.json({ jobId }, { status: 202 });
+}
+
+async function runRenderJob(jobId: string, storyboard: StoryPlan, conceptId: string): Promise<void> {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "css-render-"));
-  const outputPath = path.join(tempDir, `${concept.id}.mp4`);
+  const outputPath = path.join(tempDir, `${conceptId}.mp4`);
 
   try {
     await renderStoryboardToFile(storyboard, outputPath);
-    const file = await readFile(outputPath);
-
-    return new NextResponse(new Uint8Array(file), {
-      status: 200,
-      headers: {
-        "Content-Type": "video/mp4",
-        "Content-Disposition": `attachment; filename="${concept.id}.mp4"`,
-      },
-    });
+    markJobCompleted(jobId, outputPath, `${conceptId}.mp4`);
   } catch (error) {
-    console.error("[render] Remotion 렌더링 실패:", error);
-    return NextResponse.json({ error: "영상 렌더링에 실패했습니다." }, { status: 500 });
-  } finally {
-    await rm(tempDir, { recursive: true, force: true }).catch((error: unknown) => {
-      console.warn("[render] 임시 렌더링 폴더 정리 실패:", error);
+    console.error(`[render] 작업 ${jobId} 렌더링 실패:`, error);
+    markJobFailed(jobId, "영상 렌더링에 실패했습니다.");
+    await rm(tempDir, { recursive: true, force: true }).catch((cleanupError: unknown) => {
+      console.warn(`[render] 작업 ${jobId} 임시 폴더 정리 실패:`, cleanupError);
     });
   }
 }
