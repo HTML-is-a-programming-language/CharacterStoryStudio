@@ -161,6 +161,19 @@ Mode에서 Plan 서브에이전트에게 URL 인코딩 방식(실측 비교: bas
 AAC 오디오 스트림(48kHz, 2채널, 28.05초)이 실제로 존재하는 것까지 확인했고, 오디오 필드가 없는
 Phase 1의 고정 샘플도 회귀 없이 그대로 렌더링됨을 재확인했다.
 
+## 16. Phase 11(실제 TTS API) 우선순위 질문 + 구현
+
+"실제 TTS/음악 API 연동 vs 렌더링 비동기화(큐)" 우선순위를 질문해 전자로 확정됐다. 설계 중
+TTS(단일 REST 호출)와 음악 생성(대부분 비동기 잡 방식) API의 성격이 다르다는 걸 확인하고,
+기존 `AudioProvider` 통합 인터페이스를 `TtsProvider`/`MusicProvider`로 분리했다. `OpenAiTtsProvider`
++ `getTtsProvider()`(TTS_PROVIDER=real + OPENAI_API_KEY 이중 opt-in, 이미지 Provider와 같은
+키 재사용)로 실제 TTS만 연동하고, 음악은 비동기 API 통합이 이번 범위(동기 처리 원칙)에 안 맞아
+Mock으로 남겨뒀다 — 근거를 ADR-019에 기록했다. 실제 TTS가 씬 길이에 맞춰 오디오 길이를
+조절해주지 않는다는 한계도 미리 인지해 문서화했다(Remotion Audio가 크래시 없이 자르거나
+무음 처리하는 것으로 대응). 실제 API 키가 없어 라이브 호출은 검증하지 못했고, fetch 의존성
+주입으로 로직만 테스트했다(Phase 6과 같은 방식). 기본 Mock 경로의 typecheck/test/build/
+렌더링/QA 회귀는 모두 확인했다.
+
 ---
 
 <!-- 이후 답변도 이 아래에 이어서 추가합니다 -->

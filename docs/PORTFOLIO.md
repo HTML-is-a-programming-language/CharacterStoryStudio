@@ -456,4 +456,41 @@ Mock 오디오 설계와 사전 기술 검증 절차의 근거는 [DECISIONS.md]
 
 ---
 
+## Phase 11 — 실제 TTS API(OpenAI) 연동
+
+### 무엇을 했나
+
+1. **우선순위 재질문**: "실제 TTS/음악 API 연동 vs 렌더링 비동기화(큐)" 중 전자를 선택했다.
+2. **인터페이스 분리**: TTS(나레이션)와 음악(작곡)은 API 성격이 다르다는 걸 깨닫고, 기존 `AudioProvider`를 `TtsProvider`/`MusicProvider`로 나눴다. 음악 생성 API(Suno 등)는 대부분 비동기 잡 방식이라 이번 범위(동기 처리 원칙)에 안 맞아 Mock만 유지하기로 하고, TTS만 실제 연동했다 — "전부 다 하기"보다 "할 수 있는 만큼 정직하게" 범위를 좁혔다.
+3. **Phase 6과 같은 안전장치 재사용**: `OpenAiTtsProvider` + `getTtsProvider()`(이중 opt-in: `TTS_PROVIDER=real` + `OPENAI_API_KEY`, 하나라도 없으면 Mock). 이미지 Provider와 같은 `OPENAI_API_KEY`를 재사용해 새 키를 요구하지 않았다.
+4. **동기화 한계를 미리 인지하고 기록**: 실제 TTS는 대사 길이에 맞춰 오디오 길이를 조절해주지 않는다(Mock은 반대로 길이는 정확히 맞지만 가짜 소리다). Remotion `<Audio>`가 씬 길이보다 길거나 짧은 오디오를 크래시 없이 자르거나 무음 처리한다는 것도 확인해 기록해뒀다 — 완벽한 싱크는 이번 범위 밖임을 명시.
+
+### 실행 결과
+
+```
+pnpm run typecheck → 통과 (2 tsconfig)
+pnpm run test        → 72 passed (openAiTtsProvider 3, getTtsProvider 4, mockTtsProvider 3, mockMusicProvider 3 포함)
+pnpm exec next build → 성공
+pnpm run generate/render:generated/qa (기본 Mock 경로) → 회귀 없음 확인(1080x1920, 28.05s)
+```
+
+라이브 API 호출 자체는 검증하지 못했다 — `OPENAI_API_KEY`를 가진 환경에서 `TTS_PROVIDER=real`로 실행해봐야 진짜 검증이 끝난다(이미지 Provider와 마찬가지로, 모든 Phase가 끝난 뒤 한 번에 검증하기로 한 계획에 포함된다).
+
+### 사용한 AI 도구/기능
+
+| 도구 | 용도 |
+|---|---|
+| AskUserQuestion | "TTS/음악 API vs 큐" 우선순위 위임 |
+| Bash 백그라운드 실행 | 회귀 확인(generate→render→qa)을 백그라운드로 돌리며 문서 작업 병행 |
+
+### 겪은 이슈
+
+- 없음 — Phase 6에서 이미 검증한 "이중 opt-in + fetch 의존성 주입 테스트" 패턴을 그대로 재사용할 수 있어서 새로운 종류의 문제가 생기지 않았다.
+
+### 왜 이렇게 결정했나
+
+TTS만 실제 연동하고 음악은 Mock으로 남긴 이유, 동기화 한계를 받아들인 이유는 [DECISIONS.md](./DECISIONS.md) ADR-019 참고.
+
+---
+
 <!-- 다음 작업 섹션은 아래에 이어서 추가됩니다 -->

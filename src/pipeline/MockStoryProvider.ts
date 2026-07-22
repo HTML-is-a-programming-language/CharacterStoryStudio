@@ -1,6 +1,7 @@
 import { SceneSchema, StoryPlanSchema, type Scene, type StoryPlan } from "../schema";
-import { MockAudioProvider } from "./MockAudioProvider";
+import { MockMusicProvider } from "./MockMusicProvider";
 import { getImageProvider } from "./getImageProvider";
+import { getTtsProvider } from "./getTtsProvider";
 import type { StoryProvider } from "./StoryProvider";
 import { ConversationAnalysisEmptyError, type Conversation, type ConversationAnalysis, type StoryConcept } from "./types";
 import { distributeDurationFrames, pickFromCycle } from "./utils";
@@ -13,8 +14,9 @@ import { distributeDurationFrames, pickFromCycle } from "./utils";
  * 일반적인 대화에는 잘 맞지 않을 수 있다. 실제 Provider(LLM 기반)로 교체할 때는 이 부분을
  * 프롬프트 기반 분석으로 대체해야 한다.
  *
- * 이름은 "Mock"이지만 씬 이미지 생성은 getImageProvider()가 환경변수(IMAGE_PROVIDER,
- * OPENAI_API_KEY)에 따라 실제 Provider로 바꿔치기할 수 있다(ADR-012). 대화 분석/컨셉/
+ * 이름은 "Mock"이지만 씬 이미지/나레이션 생성은 각각 getImageProvider()/getTtsProvider()가
+ * 환경변수(IMAGE_PROVIDER/TTS_PROVIDER, OPENAI_API_KEY)에 따라 실제 Provider로 바꿔치기할 수
+ * 있다(ADR-012, ADR-019). 배경음악은 MockMusicProvider만 존재한다(ADR-019). 대화 분석/컨셉/
  * 스토리보드 로직 자체는 여전히 규칙 기반이라 이름은 그대로 유지한다.
  */
 const EVENT_KEYWORDS = ["비", "설레", "좋아", "예쁘다", "우산"];
@@ -129,7 +131,7 @@ export const MockStoryProvider: StoryProvider = {
           variant: 0,
           seedText: message.content,
         });
-        const narration = await MockAudioProvider.generateNarration({
+        const narration = await getTtsProvider().generateNarration({
           sceneId,
           text: message.content,
           durationInFrames,
@@ -152,7 +154,7 @@ export const MockStoryProvider: StoryProvider = {
     );
 
     const totalDurationInFrames = durations.reduce((sum, value) => sum + value, 0);
-    const music = await MockAudioProvider.generateMusic({
+    const music = await MockMusicProvider.generateMusic({
       tone: concept.tone,
       durationInFrames: totalDurationInFrames,
       fps: FPS,
@@ -189,7 +191,7 @@ export const MockStoryProvider: StoryProvider = {
       variant,
       seedText: scene.dialogue,
     });
-    const narration = await MockAudioProvider.generateNarration({
+    const narration = await getTtsProvider().generateNarration({
       sceneId: `${scene.id}:${variant}`,
       text: scene.dialogue,
       durationInFrames: scene.durationInFrames,

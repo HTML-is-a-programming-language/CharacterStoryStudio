@@ -182,4 +182,17 @@
 
 ---
 
+## ADR-019. 실제 TTS는 OpenAI로 연동, 배경음악은 Mock만 유지(비동기 작곡 API 제외)
+
+- **상태**: 확정
+- **배경**: "실제 TTS/음악 API 연동 vs 렌더링 비동기화(큐)" 중 전자를 선택했다. 다만 나레이션(TTS)과 배경음악(작곡)은 API 성격이 크게 다르다 — TTS는 OpenAI처럼 단일 REST 호출로 끝나는 벤더가 있는 반면, 음악 생성(Suno 등)은 대부분 비동기 잡 제출→폴링 방식이라 이번 범위(동기 처리 원칙, ADR-014)에 맞지 않는다.
+- **결정**:
+  1. 기존 `AudioProvider`(나레이션+음악 통합 인터페이스)를 `TtsProvider`/`MusicProvider`로 분리했다. 관심사가 다른 두 기능을 억지로 한 인터페이스에 묶어두지 않기 위함이다.
+  2. **TTS만 실제 연동**: `OpenAiTtsProvider`(OpenAI `tts-1`)를 추가하고, `getTtsProvider()`가 `TTS_PROVIDER=real` + `OPENAI_API_KEY`(이미지 Provider와 같은 키 재사용) 이중 opt-in으로 실제 Provider를 켠다. 하나라도 없으면 항상 `MockTtsProvider`(ADR-018의 절차적 톤 합성).
+  3. **음악은 Mock만 유지**: 실제 작곡 API는 이번에 연동하지 않는다. `MusicProvider`는 `MockMusicProvider` 구현체 하나만 존재한다.
+  4. **알려진 한계를 명시**: OpenAI TTS는 대사의 자연스러운 발화 속도로 음성을 만들 뿐 씬 `durationInFrames`에 맞춰 길이를 조절해주지 않는다 — Mock은 반대로 길이를 정확히 맞추지만 실제 목소리가 아니다. Remotion `<Audio>`는 씬 길이보다 긴 오디오는 그 지점에서 잘리고, 짧으면 남는 시간은 무음으로 재생되어 크래시 없이 우아하게 대응한다. 완벽한 립싱크 싱크는 이번 범위에 포함하지 않는다.
+- **결과**: `TtsProvider`/`MusicProvider` 분리로 향후 실제 음악 API(예: 비동기 잡 지원 인프라가 생겼을 때)를 추가하기 쉬운 구조가 됐다. 실제 API 키가 없어 `OpenAiTtsProvider`의 라이브 호출은 검증하지 못했고, fetch 의존성 주입으로 요청/응답 로직만 테스트했다(Phase 6, ADR-012와 같은 방식).
+
+---
+
 <!-- 이후 Phase에서 결정한 사항은 이 아래에 계속 추가합니다 -->
