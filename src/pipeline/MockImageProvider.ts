@@ -1,5 +1,6 @@
 import type { GenerateSceneImageInput, GeneratedSceneImage, ImageProvider } from "./ImageProvider";
 import type { StoryConcept } from "./types";
+import { hashSeed, seededRandom } from "./utils";
 
 /**
  * 실제 이미지 생성 API 없이, 씬 정보를 시드로 한 결정론적 절차적 SVG를 만드는 Mock Provider.
@@ -32,19 +33,6 @@ const TONE_LABEL: Record<StoryConcept["tone"], string> = {
 
 const VIEWBOX_WIDTH = 200;
 const VIEWBOX_HEIGHT = 356;
-
-function hashSeed(input: string): number {
-  let hash = 0;
-  for (let i = 0; i < input.length; i += 1) {
-    hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
-  }
-  return hash;
-}
-
-function seededRandom(seed: number, salt: number): number {
-  const value = Math.sin(seed + salt) * 10000;
-  return value - Math.floor(value);
-}
 
 function buildSvg(tone: StoryConcept["tone"], seed: number): string {
   const colors = TONE_COLORS[tone];

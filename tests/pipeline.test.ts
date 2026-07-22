@@ -36,6 +36,7 @@ describe("MockStoryProvider", () => {
     const storyboard = await MockStoryProvider.generateStoryboard(concept, analysis, conversation);
 
     expect(StoryPlanSchema.safeParse(storyboard).success).toBe(true);
+    expect(storyboard.musicDataUri?.startsWith("data:audio/wav;base64,")).toBe(true);
 
     const totalSeconds =
       storyboard.scenes.reduce((sum, scene) => sum + scene.durationInFrames, 0) / storyboard.fps;
@@ -48,6 +49,7 @@ describe("MockStoryProvider", () => {
         expect(exists).toBe(true);
       }
       expect(scene.imageDataUri?.startsWith("data:image/svg+xml;base64,")).toBe(true);
+      expect(scene.audioDataUri?.startsWith("data:audio/wav;base64,")).toBe(true);
     }
   });
 
@@ -83,6 +85,7 @@ describe("MockStoryProvider", () => {
     expect(regenerated.sourceMessageIds).toEqual(originalScene.sourceMessageIds);
     expect(regenerated.background).not.toEqual(originalScene.background);
     expect(regenerated.imageDataUri).not.toEqual(originalScene.imageDataUri);
+    expect(regenerated.audioDataUri).not.toEqual(originalScene.audioDataUri);
   });
 
   it("regenerateScene은 variant가 0이면 씬을 그대로 반환한다", async () => {

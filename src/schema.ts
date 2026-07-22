@@ -15,6 +15,8 @@ export const SceneSchema = z.object({
   /** ImageProvider가 생성한 씬 이미지(data URI). 없으면 background 그라디언트로 대체 렌더링한다. */
   imageDataUri: z.string().optional(),
   imageAlt: z.string().optional(),
+  /** AudioProvider가 생성한 이 씬의 나레이션(data URI). 없으면 무음으로 렌더링한다. */
+  audioDataUri: z.string().optional(),
 });
 
 export const StoryPlanSchema = z.object({
@@ -23,6 +25,8 @@ export const StoryPlanSchema = z.object({
   width: z.number().int().positive(),
   height: z.number().int().positive(),
   scenes: z.array(SceneSchema).min(1),
+  /** AudioProvider가 생성한 전체 배경음악(data URI). 없으면 배경음악 없이 렌더링한다. */
+  musicDataUri: z.string().optional(),
 });
 
 export type Scene = z.infer<typeof SceneSchema>;

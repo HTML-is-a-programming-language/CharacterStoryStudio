@@ -1,6 +1,7 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Audio,
   Sequence,
   interpolate,
   spring,
@@ -20,6 +21,7 @@ const SceneView: React.FC<{ scene: Scene }> = ({ scene }) => {
 
   return (
     <AbsoluteFill style={sceneBackgroundStyle(scene)}>
+      {scene.audioDataUri !== undefined && <Audio src={scene.audioDataUri} />}
       <AbsoluteFill
         style={{ background: "linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0) 55%)" }}
       />
@@ -63,6 +65,7 @@ export const StoryComposition: React.FC<{ story: StoryPlan }> = ({ story }) => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: "black" }}>
+      {story.musicDataUri !== undefined && <Audio src={story.musicDataUri} />}
       {story.scenes.map((scene) => {
         const from = startFrame;
         startFrame += scene.durationInFrames;

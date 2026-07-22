@@ -417,4 +417,43 @@ curl 검증:
 
 ---
 
+## Phase 10 — 음성/BGM Provider(Mock) 추가
+
+### 무엇을 했나
+
+1. **우선순위 재질문**: "음성/BGM Provider vs 렌더링 비동기화(큐)" 중 음성/BGM을 선택했다. 지금까지 렌더링된 영상엔 오디오가 전혀 없었다는 실질적인 공백을 채우는 쪽을 권장했고 사용자도 동의했다.
+2. **본격 구현 전 기술 검증부터**: "Remotion이 `<Audio src="data:...">`를 실제 렌더링에 반영할 수 있는가"는 확신이 없는 핵심 리스크였다. 임시 스파이크 컴포지션을 만들어 실제로 렌더링해보고 `ffprobe`로 결과물에 오디오 스트림이 생기는지 먼저 확인한 뒤, 확인되자 스파이크 코드를 지우고 본 기능을 만들었다 — 잘못된 가정 위에 큰 기능을 쌓지 않으려는 순서였다.
+3. **직접 WAV 인코딩**: 외부 라이브러리 없이 모노 16bit PCM WAV 인코더(`src/pipeline/wavEncoder.ts`)를 직접 만들었다.
+4. **정직한 Mock 오디오**: `MockAudioProvider`가 실제 음성이 아니라 사람 목소리대 사인파+트레몰로(나레이션), 컨셉 톤별 화음(배경음악)을 만든다. 대사 텍스트는 여전히 불변이고, 재생성 시 나레이션도 함께 다른 시드로 바뀐다.
+5. **중복 제거**: `MockImageProvider`에만 있던 시드 해시 유틸을 `src/pipeline/utils.ts`로 옮겨 `MockAudioProvider`와 공유했다.
+
+### 실행 결과
+
+```
+pnpm run typecheck → 통과 (2 tsconfig)
+pnpm run test        → 63 passed (wavEncoder 5, mockAudioProvider 4 포함)
+pnpm exec next build → 성공
+pnpm run generate     → src/data/generated-story.json에 audioDataUri 5개 + musicDataUri 1개 확인
+pnpm run render:generated → out/generated.mp4
+ffprobe 실측: video(h264, 28.0s) + audio(aac, 48000Hz, 2채널, 28.05s) 스트림 모두 확인
+pnpm run qa → 해상도/재생시간 통과
+```
+
+### 사용한 AI 도구/기능
+
+| 도구 | 용도 |
+|---|---|
+| AskUserQuestion | "음성/BGM vs 큐" 우선순위 위임 |
+| Bash(스파이크 렌더링 + ffprobe) | 기능을 다 만들기 전에 핵심 가정(Remotion의 data URI 오디오 지원 여부)부터 실제로 검증 |
+
+### 겪은 이슈
+
+- 없음(설계상 큰 이슈) — 다만 스파이크 첫 시도에서 `node:fs`로 파일을 런타임에 읽으려다 Remotion의 웹팩 번들링이 "node: URI를 처리할 수 없다"는 에러를 냈다. Remotion 컴포넌트는 브라우저 컨텍스트에서 번들링된다는 걸 다시 확인하고, 데이터를 소스 코드에 리터럴로 박아넣는 방식으로 바꿔 해결했다.
+
+### 왜 이렇게 결정했나
+
+Mock 오디오 설계와 사전 기술 검증 절차의 근거는 [DECISIONS.md](./DECISIONS.md) ADR-018 참고.
+
+---
+
 <!-- 다음 작업 섹션은 아래에 이어서 추가됩니다 -->

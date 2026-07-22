@@ -19,3 +19,18 @@ export function pickFromCycle<T>(items: readonly T[], index: number): T {
   }
   return item;
 }
+
+/** 문자열을 결정론적 정수 시드로 바꾼다(Mock Provider들이 "같은 입력 → 같은 결과"를 보장하는 데 공용으로 쓴다). */
+export function hashSeed(input: string): number {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+/** seed+salt로부터 결정론적 의사난수([0,1))를 만든다. */
+export function seededRandom(seed: number, salt: number): number {
+  const value = Math.sin(seed + salt) * 10000;
+  return value - Math.floor(value);
+}

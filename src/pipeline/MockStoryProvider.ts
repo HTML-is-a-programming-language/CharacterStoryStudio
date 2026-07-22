@@ -1,4 +1,5 @@
 import { SceneSchema, StoryPlanSchema, type Scene, type StoryPlan } from "../schema";
+import { MockAudioProvider } from "./MockAudioProvider";
 import { getImageProvider } from "./getImageProvider";
 import type { StoryProvider } from "./StoryProvider";
 import { ConversationAnalysisEmptyError, type Conversation, type ConversationAnalysis, type StoryConcept } from "./types";
@@ -128,6 +129,12 @@ export const MockStoryProvider: StoryProvider = {
           variant: 0,
           seedText: message.content,
         });
+        const narration = await MockAudioProvider.generateNarration({
+          sceneId,
+          text: message.content,
+          durationInFrames,
+          fps: FPS,
+        });
 
         return {
           id: sceneId,
@@ -139,9 +146,17 @@ export const MockStoryProvider: StoryProvider = {
           sourceMessageIds: [event.sourceMessageId],
           imageDataUri: image.dataUri,
           imageAlt: image.altText,
+          audioDataUri: narration.dataUri,
         };
       }),
     );
+
+    const totalDurationInFrames = durations.reduce((sum, value) => sum + value, 0);
+    const music = await MockAudioProvider.generateMusic({
+      tone: concept.tone,
+      durationInFrames: totalDurationInFrames,
+      fps: FPS,
+    });
 
     return StoryPlanSchema.parse({
       title: concept.title,
@@ -149,6 +164,7 @@ export const MockStoryProvider: StoryProvider = {
       width: WIDTH,
       height: HEIGHT,
       scenes,
+      musicDataUri: music.dataUri,
     });
   },
 
@@ -163,8 +179,8 @@ export const MockStoryProvider: StoryProvider = {
     }
 
     // 대사(speaker/dialogue/sourceMessageIds)는 원본 대화에서 나온 사실이므로 재생성 대상이
-    // 아니다 — 여기서 바꾸는 건 연출(배경 팔레트 + 이미지)뿐이다. 실제 LLM/이미지 Provider로
-    // 교체하더라도 이 불변식(대사 불변)은 유지해야 한다.
+    // 아니다 — 여기서 바꾸는 건 연출(배경 팔레트 + 이미지 + 나레이션 톤)뿐이다. 실제 LLM/이미지/
+    // 음성 Provider로 교체하더라도 이 불변식(대사 불변)은 유지해야 한다.
     const palette = TONE_PALETTES[concept.tone];
     const background = pickFromCycle(palette, sceneIndex + variant);
     const image = await getImageProvider().generateSceneImage({
@@ -173,12 +189,19 @@ export const MockStoryProvider: StoryProvider = {
       variant,
       seedText: scene.dialogue,
     });
+    const narration = await MockAudioProvider.generateNarration({
+      sceneId: `${scene.id}:${variant}`,
+      text: scene.dialogue,
+      durationInFrames: scene.durationInFrames,
+      fps: FPS,
+    });
 
     return SceneSchema.parse({
       ...scene,
       background,
       imageDataUri: image.dataUri,
       imageAlt: image.altText,
+      audioDataUri: narration.dataUri,
     });
   },
 };
