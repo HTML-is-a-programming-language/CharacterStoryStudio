@@ -1,26 +1,5 @@
-import { execFileSync } from "node:child_process";
 import path from "node:path";
-import ffprobe from "@ffprobe-installer/ffprobe";
-
-interface FfprobeStream {
-  codec_type: string;
-  width?: number;
-  height?: number;
-}
-
-interface FfprobeResult {
-  format: { duration: string };
-  streams: FfprobeStream[];
-}
-
-function probe(filePath: string): FfprobeResult {
-  const output = execFileSync(
-    ffprobe.path,
-    ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", filePath],
-    { encoding: "utf-8" },
-  );
-  return JSON.parse(output) as FfprobeResult;
-}
+import { runQaCheck } from "../src/rendering/qaCheck";
 
 function main(): void {
   const target = process.argv[2];
@@ -30,38 +9,13 @@ function main(): void {
     return;
   }
 
-  const filePath = path.resolve(target);
-  const result = probe(filePath);
+  const result = runQaCheck(path.resolve(target));
 
-  const videoStream = result.streams.find((stream) => stream.codec_type === "video");
-  if (!videoStream || videoStream.width === undefined || videoStream.height === undefined) {
-    console.error("✗ 영상 스트림을 찾을 수 없습니다.");
-    process.exitCode = 1;
-    return;
-  }
-
-  const durationSeconds = Number(result.format.duration);
-  const { width, height } = videoStream;
-
-  const checks = [
-    {
-      name: "해상도 1080x1920 (9:16 세로형)",
-      pass: width === 1080 && height === 1920,
-      detail: `${width}x${height}`,
-    },
-    {
-      name: "재생시간 20~40초 범위",
-      pass: durationSeconds >= 20 && durationSeconds <= 40,
-      detail: `${durationSeconds.toFixed(2)}s`,
-    },
-  ];
-
-  for (const check of checks) {
+  for (const check of result.checks) {
     console.log(`${check.pass ? "✓" : "✗"} ${check.name} — ${check.detail}`);
   }
 
-  const failed = checks.some((check) => !check.pass);
-  if (failed) {
+  if (!result.passed) {
     process.exitCode = 1;
   }
 }

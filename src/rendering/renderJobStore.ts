@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { QaCheckResult } from "./qaCheck";
+
 /**
  * 렌더링 작업을 서버 프로세스 메모리에만 보관하는 아주 단순한 잡 저장소.
  *
@@ -28,6 +30,7 @@ export interface RenderJob {
   filePath?: string;
   fileName?: string;
   error?: string;
+  qaResult?: QaCheckResult;
 }
 
 declare global {
@@ -48,7 +51,12 @@ export function getJob(id: string): RenderJob | undefined {
   return jobs.get(id);
 }
 
-export function markJobCompleted(id: string, filePath: string, fileName: string): void {
+export function markJobCompleted(
+  id: string,
+  filePath: string,
+  fileName: string,
+  qaResult?: QaCheckResult,
+): void {
   const job = jobs.get(id);
   if (!job) {
     return;
@@ -56,6 +64,7 @@ export function markJobCompleted(id: string, filePath: string, fileName: string)
   job.status = "completed";
   job.filePath = filePath;
   job.fileName = fileName;
+  job.qaResult = qaResult;
 }
 
 export function markJobFailed(id: string, error: string): void {

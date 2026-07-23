@@ -221,4 +221,19 @@
 
 ---
 
+## ADR-022. QA를 렌더링 파이프라인에 자동 통합
+
+- **상태**: 확정
+- **배경**: `scripts/qa-check.ts`(`pnpm run qa <mp4>`)는 해상도/재생시간을 검증하는 CLI 스크립트였지만 실제 렌더링 흐름과 분리되어 있어, 사용자가 렌더링 완료 후 이 명령을 별도로 기억해서 실행해야만 결과를 볼 수 있었다. PROJECT_BRIEF.md가 정의한 핵심 흐름("렌더링 → QA → 결과 확인")과도 어긋났다. 렌더링 작업이 완료되면 QA가 자동으로 돌고, 그 결과가 `RenderPanel` 화면에 함께 보이도록 파이프라인에 통합했다.
+- **핵심 제약**: 공유 모듈(`src/rendering/qaCheck.ts`)에 `"server-only"`를 붙일 수 없다. `scripts/qa-check.ts`는 plain `tsx`로 실행되는데, `"server-only"` 패키지는 Next.js 번들러의 `"react-server"` 조건부 export가 있을 때만 안전한 no-op으로 resolve되고 그 외 환경(plain tsx, vitest 등)에서는 무조건 throw한다(`vitest.config.ts`가 이 패키지를 스텁으로 alias해둔 것과 같은 이유). 클라이언트 번들에서 이 모듈에 닿을 경로가 없으므로(Route Handler와 CLI 스크립트에서만 import) 붙이지 않아도 안전하다는 걸 리팩터링 후 `pnpm run qa`를 그대로 실행해 실측 확인했다.
+- **결정**:
+  1. `scripts/qa-check.ts`의 ffprobe 로직을 `src/rendering/qaCheck.ts`(`runQaCheck`)로 옮기고, CLI 스크립트는 이걸 호출하도록 리팩터링했다. `probeImpl`을 기본 인자로 주입 가능하게 해서(`OpenAiTtsProvider`의 `fetchImpl` 패턴과 같은 취지) 테스트가 실제 ffprobe 바이너리 없이도 검증할 수 있게 했다.
+  2. `app/story/[conceptId]/render/route.ts`의 `runRenderJob`에서 렌더링 성공 후, `markJobCompleted` 전에 QA를 실행한다. **QA 실행 자체가 실패해도(ffprobe 문제 등) 렌더링 작업을 실패로 표시하지 않는다** — 렌더링은 이미 성공했고 결과물은 여전히 다운로드 가능해야 하기 때문이다. 별도 try/catch로 감싸고 `qaResult`를 `undefined`로 둔 채 `console.warn`만 남긴다.
+  3. `RenderJob`/`markJobCompleted`/`/render/status` 응답에 `qaResult`를 실어 `RenderPanel.tsx`가 다운로드 링크 아래에 체크 목록을 보여준다. 실패한 체크는 경고 색상(빨강 아님)으로 — QA는 다운로드를 막지 않는 정보성 표시임을 시각적으로도 드러낸다.
+  4. `@ffprobe-installer/ffprobe`를 `devDependencies`에서 `dependencies`로 옮겼다 — 이제 배포된 서버(렌더 라우트)에서도 실행되는 런타임 의존성이기 때문이다.
+- **겪은 이슈**: `next build`가 `@ffprobe-installer/ffprobe`의 `index.js`(동적 require로 자신의 `tsconfig.json`/`.d.ts`까지 끌어들이는 Node 전용 패키지)를 웹팩이 번들링하려다 `tsconfig.json`을 JS로 파싱해서 실패했다 — Phase 7에서 `@remotion/bundler`에 겪었던 것과 같은 "Node 전용 패키지를 웹팩이 억지로 번들링하려는" 문제였다. `next.config.mjs`의 `experimental.serverComponentsExternalPackages`에 `@ffprobe-installer/ffprobe`를 추가해 같은 방식으로 해결했다.
+- **결과**: `pnpm run typecheck`/`pnpm run test`(89개 통과)/`pnpm exec next build` 모두 통과. `pnpm run qa out/story.mp4`로 CLI 스크립트가 리팩터링 후에도 기존과 동일하게 동작하는 것을 확인했다. dev 서버 + curl로 렌더링 시작→폴링→완료 응답에 `qaResult`가 정상적으로 실리는 것(`{"passed":true,"checks":[...]}`)과 다운로드가 QA 결과와 무관하게 계속 되는 것(1회성 다운로드 409 포함)을 실제로 확인했다.
+
+---
+
 <!-- 이후 Phase에서 결정한 사항은 이 아래에 계속 추가합니다 -->

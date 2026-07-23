@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { QaCheckResult } from "../../../src/rendering/qaCheck";
 
 type RenderState = "idle" | "pending" | "completed" | "failed";
 
@@ -11,6 +12,7 @@ export function RenderPanel({ conceptId, startHref }: { conceptId: string; start
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [qaResult, setQaResult] = useState<QaCheckResult | undefined>(undefined);
   const startedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -27,10 +29,15 @@ export function RenderPanel({ conceptId, startHref }: { conceptId: string; start
       if (!response.ok) {
         return;
       }
-      const data = (await response.json()) as { status: RenderState; error?: string };
+      const data = (await response.json()) as {
+        status: RenderState;
+        error?: string;
+        qaResult?: QaCheckResult;
+      };
 
       if (data.status === "completed") {
         setState("completed");
+        setQaResult(data.qaResult);
       } else if (data.status === "failed") {
         setState("failed");
         setError(data.error ?? "영상 렌더링에 실패했습니다.");
@@ -43,6 +50,7 @@ export function RenderPanel({ conceptId, startHref }: { conceptId: string; start
   async function handleStart() {
     setState("pending");
     setError(null);
+    setQaResult(undefined);
     startedAtRef.current = Date.now();
     setElapsedSeconds(0);
 
@@ -60,12 +68,23 @@ export function RenderPanel({ conceptId, startHref }: { conceptId: string; start
 
   if (state === "completed" && jobId) {
     return (
-      <a
-        href={`/story/${conceptId}/render/download?jobId=${jobId}`}
-        className="mt-2 inline-block rounded-md bg-emerald-400/20 px-4 py-2 font-medium text-emerald-100 hover:bg-emerald-400/30"
-      >
-        영상 다운로드 (MP4)
-      </a>
+      <div className="mt-2">
+        <a
+          href={`/story/${conceptId}/render/download?jobId=${jobId}`}
+          className="inline-block rounded-md bg-emerald-400/20 px-4 py-2 font-medium text-emerald-100 hover:bg-emerald-400/30"
+        >
+          영상 다운로드 (MP4)
+        </a>
+        {qaResult && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {qaResult.checks.map((check) => (
+              <li key={check.name} className={check.pass ? "text-emerald-200/80" : "text-amber-300"}>
+                {check.pass ? "✓" : "⚠"} {check.name} — {check.detail}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     );
   }
 

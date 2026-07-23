@@ -567,4 +567,48 @@ Redis 대신 인메모리 방식을 택한 이유, globalThis 수정 근거는 [
 
 ---
 
+## QA를 렌더링 파이프라인에 자동 통합
+
+### 무엇을 했나
+
+1. **"다음 권장 작업" 옵션 제시**: QA 자동 통합, Playwright E2E 도입, 실제 배경음악 API 연동 재검토 세 가지를 근거와 함께 제시했고 QA 자동 통합을 선택받았다. `pnpm run qa`가 렌더링 흐름과 분리되어 있어 사용자가 매번 직접 실행해야 결과를 볼 수 있었다는 게 선정 이유였다.
+2. **설계를 Plan 서브에이전트로 검증**: 기존 `qa-check.ts`/`renderJobStore.ts`/render 라우트 3종/`RenderPanel.tsx`의 전체 코드를 컨텍스트로 넘겨 구현 계획을 세우게 했다. 이 과정에서 `"server-only"` 패키지가 plain tsx 환경에서는 무조건 throw한다는 제약(CLI 스크립트와 공유 모듈을 만들 때 반드시 고려해야 하는 것)을 미리 짚어줘서, 실제 구현 전에 설계를 한 번 더 다듬을 수 있었다.
+3. **ffprobe 로직을 `src/rendering/qaCheck.ts`로 추출**: `scripts/qa-check.ts`와 렌더 라우트가 동일한 `runQaCheck` 함수를 공유하도록 리팩터링했다. `probeImpl`을 주입 가능하게 만들어(기존 `OpenAiTtsProvider`의 `fetchImpl` 패턴과 동일) 실제 ffprobe 바이너리 없이도 유닛 테스트가 가능하다.
+4. **렌더링 완료 시 QA 자동 실행**: `render/route.ts`가 `renderStoryboardToFile` 성공 직후 QA를 돌리고, 결과를 `RenderJob`에 실어 `/render/status` 응답과 `RenderPanel` 화면(다운로드 링크 아래 체크 목록)까지 흘려보낸다. QA 자체가 실패해도 렌더링 작업은 실패 처리하지 않는다 — 결과물은 이미 다운로드 가능한 상태이기 때문이다.
+5. **실전에서 또 하나의 빌드 버그를 만나고 고쳤다**: `@ffprobe-installer/ffprobe`를 렌더 라우트에서 import하자 `next build`가 웹팩 에러로 실패했다. Phase 7에서 `@remotion/bundler`에 겪었던 것과 정확히 같은 계열의 문제(Node 전용 패키지를 웹팩이 억지로 번들링하려는 것)였고, `next.config.mjs`의 `serverComponentsExternalPackages`에 추가하는 같은 해법으로 고쳤다 — 이전에 겪은 문제의 패턴을 알아보고 빠르게 대응한 사례.
+
+### 실행 결과
+
+```
+pnpm run typecheck → 통과 (2 tsconfig)
+pnpm run test        → 89 passed (qaCheck 4개, renderJobStore/renderStatusDownloadRoutes 보강 포함)
+pnpm exec next build → 성공
+pnpm run qa out/story.mp4 → 리팩터링 전과 동일한 출력 확인
+
+실제 curl 검증(dev 서버):
+  POST /story/concept-calm/render(전체 승인) → 202 + jobId
+  GET .../render/status?jobId=... → pending을 거쳐(7회 폴링, ~21초) completed로 전환,
+    qaResult: {"passed":true,"checks":[해상도 1080x1920 ✓, 재생시간 28.05s ✓]}
+  GET .../render/download?jobId=... → 200, 다운로드 성공
+  같은 jobId로 재다운로드 → 409(1회성 다운로드 그대로 유지)
+```
+
+### 사용한 AI 도구/기능
+
+| 도구 | 용도 |
+|---|---|
+| AskUserQuestion | "QA 자동 통합 vs Playwright E2E vs 실제 음악 API" 우선순위 위임 |
+| Plan 서브에이전트 | 기존 파이프라인 전체를 컨텍스트로 넘겨 구현 설계 검증 — `"server-only"` plain tsx 제약을 미리 짚어줌 |
+| Bash(dev 서버 + curl 폴링) | 렌더링→QA→다운로드 전체 흐름이 실제로 동작하는지 재검증(ADR-020 때와 같은 방식) |
+
+### 겪은 이슈
+
+- **Node 전용 패키지 + Next 웹팩 번들링 충돌이 또 발생했다**: `@remotion/bundler`(Phase 7)에 이어 `@ffprobe-installer/ffprobe`도 같은 패턴의 문제를 냈다 — 동적 `require`로 자기 자신의 `tsconfig.json`을 끌어들이는 구조라 웹팩이 그걸 JS로 파싱하려다 실패했다. `serverComponentsExternalPackages`로 해결하는 패턴이 이제 이 프로젝트에서 두 번째로 반복됐다는 걸 문서에도 남긴다 — 앞으로 Node 전용 바이너리/네이티브 의존성을 추가할 때 먼저 의심해볼 지점이다.
+
+### 왜 이렇게 결정했나
+
+설계 배경과 `"server-only"` 제약에 대한 근거는 [DECISIONS.md](./DECISIONS.md) ADR-022 참고.
+
+---
+
 <!-- 다음 작업 섹션은 아래에 이어서 추가됩니다 -->

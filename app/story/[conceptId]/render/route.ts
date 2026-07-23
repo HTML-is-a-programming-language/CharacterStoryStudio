@@ -5,6 +5,7 @@ import path from "node:path";
 import { NextResponse, type NextRequest } from "next/server";
 import { getStoryboardForConcept } from "../../../../src/pipeline/conversationPipeline";
 import { ConversationAnalysisEmptyError } from "../../../../src/pipeline/types";
+import { runQaCheck, type QaCheckResult } from "../../../../src/rendering/qaCheck";
 import { createJob, markJobCompleted, markJobFailed } from "../../../../src/rendering/renderJobStore";
 import { renderStoryboardToFile } from "../../../../src/rendering/renderStoryboard";
 import type { StoryPlan } from "../../../../src/schema";
@@ -63,7 +64,17 @@ async function runRenderJob(jobId: string, storyboard: StoryPlan, conceptId: str
 
   try {
     await renderStoryboardToFile(storyboard, outputPath);
-    markJobCompleted(jobId, outputPath, `${conceptId}.mp4`);
+
+    let qaResult: QaCheckResult | undefined;
+    try {
+      qaResult = runQaCheck(outputPath);
+    } catch (qaError) {
+      // QA 실행 자체가 실패해도(ffprobe 문제 등) 렌더링은 이미 성공했으므로 작업을
+      // 실패시키지 않는다 — 로그만 남기고 다운로드 가능한 결과물을 그대로 완료 처리한다.
+      console.warn(`[render] 작업 ${jobId} QA 검사 실행 실패:`, qaError);
+    }
+
+    markJobCompleted(jobId, outputPath, `${conceptId}.mp4`, qaResult);
   } catch (error) {
     console.error(`[render] 작업 ${jobId} 렌더링 실패:`, error);
     markJobFailed(jobId, "영상 렌더링에 실패했습니다.");

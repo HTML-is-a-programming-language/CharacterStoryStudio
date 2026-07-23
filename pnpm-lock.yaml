@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@ffprobe-installer/ffprobe':
+        specifier: ^2.1.2
+        version: 2.1.2
       '@remotion/bundler':
         specifier: 4.0.290
         version: 4.0.290(lightningcss@1.32.0)(postcss@8.5.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -36,9 +39,6 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
-      '@ffprobe-installer/ffprobe':
-        specifier: ^2.1.2
-        version: 2.1.2
       '@tailwindcss/postcss':
         specifier: ^4.3.3
         version: 4.3.3

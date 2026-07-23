@@ -27,6 +27,21 @@ describe("GET /story/[conceptId]/render/status", () => {
     const body = (await response.json()) as { status: string };
     expect(body.status).toBe("pending");
   });
+
+  it("완료된 작업이면 QA 결과도 함께 반환한다", async () => {
+    createJob("status-qa-job");
+    const qaResult = {
+      passed: false,
+      checks: [{ name: "재생시간 20~40초 범위", pass: false, detail: "10.00s" }],
+    };
+    markJobCompleted("status-qa-job", "/tmp/out.mp4", "out.mp4", qaResult);
+
+    const response = getStatus(
+      new NextRequest("http://localhost/story/x/render/status?jobId=status-qa-job"),
+    );
+    const body = (await response.json()) as { status: string; qaResult?: typeof qaResult };
+    expect(body.qaResult).toEqual(qaResult);
+  });
 });
 
 describe("GET /story/[conceptId]/render/download", () => {

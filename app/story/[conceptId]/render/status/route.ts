@@ -13,5 +13,5 @@ export function GET(request: NextRequest) {
     return NextResponse.json({ error: "존재하지 않는 작업입니다." }, { status: 404 });
   }
 
-  return NextResponse.json({ status: job.status, error: job.error });
+  return NextResponse.json({ status: job.status, error: job.error, qaResult: job.qaResult });
 }

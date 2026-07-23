@@ -22,6 +22,18 @@ describe("renderJobStore", () => {
     expect(job?.status).toBe("completed");
     expect(job?.filePath).toBe("/tmp/out.mp4");
     expect(job?.fileName).toBe("out.mp4");
+    expect(job?.qaResult).toBeUndefined();
+  });
+
+  it("markJobCompleted에 QA 결과를 넘기면 함께 저장한다", () => {
+    createJob("job-2b");
+    const qaResult = {
+      passed: true,
+      checks: [{ name: "해상도 1080x1920 (9:16 세로형)", pass: true, detail: "1080x1920" }],
+    };
+    markJobCompleted("job-2b", "/tmp/out.mp4", "out.mp4", qaResult);
+
+    expect(getJob("job-2b")?.qaResult).toEqual(qaResult);
   });
 
   it("markJobFailed는 상태와 에러 메시지를 채운다", () => {
