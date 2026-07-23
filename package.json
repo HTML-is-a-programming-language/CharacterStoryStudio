@@ -13,7 +13,8 @@
     "render:generated": "remotion render src/index.ts StoryComposition out/generated.mp4 --props=src/data/generated-story.json",
     "qa": "tsx scripts/qa-check.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.web.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
@@ -29,6 +30,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.9.0",
     "@types/react": "18.3.12",

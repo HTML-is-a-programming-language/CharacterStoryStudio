@@ -645,4 +645,42 @@ dev 서버 + curl: 렌더링 시작→폴링(12회, ~36초)→완료 응답에 4
 
 ---
 
+## Playwright E2E 테스트 도입
+
+### 무엇을 했나
+
+1. **"다음 권장 작업" 두 갈래 중 하나를 선택받음**: Playwright E2E 도입과 실제 배경음악 API 연동 재검토 중 Playwright를 먼저 진행하기로 했다. PROJECT_BRIEF.md가 처음부터 명시했던 테스트 스택인데도 실제로 도입한 적이 없었고, 여러 ADR에 "실제 클릭은 검증 못했다"는 한계가 반복 기록되어 있었다.
+2. **UI 코드를 먼저 읽고 셀렉터를 설계**: `ChatClient.tsx`, `page.tsx`, `ConceptCard.tsx`, `story/[conceptId]/page.tsx`, `SceneCard.tsx`를 읽고 실제 버튼/링크 텍스트와 상태 전이 조건(예: 채팅 종료 조건, 승인 링크의 토글 동작)을 파악한 뒤 스펙을 작성했다.
+3. **채팅→분석→컨셉→승인→렌더링→다운로드 전체를 하나의 스펙으로 검증**: `e2e/story-flow.spec.ts` 하나로 이 프로젝트의 핵심 사용자 흐름 전체를 실제 Chromium으로 끝까지 돈다. Mock Provider만 쓰므로 비용이나 API 키 없이 동작한다.
+4. **실행해보면서 세 가지를 실전에서 고쳤다**: (1) "승인" 셀렉터가 이미 승인된 링크의 "✓ 승인됨 (취소)"까지 부분 문자열로 매칭해서 무한 루프에 빠진 것을 `exact: true`로 고쳤고, (2) `count()`가 Next.js `<Link>`의 클라이언트 사이드 전환을 안 기다려주는 걸 자동 재시도가 있는 `toHaveCount` assertion으로 바꿔 고쳤고, (3) 채팅 왕복+렌더링 대기를 합치면 기본 타임아웃(90초)이 부족해서 150초로 늘렸다.
+5. **vitest와 충돌하지 않게 분리**: Playwright 스펙을 `tests/`가 아니라 별도 `e2e/` 디렉터리에 두고, `vitest.config.ts`에서 명시적으로 제외했다(vitest 기본 include 패턴이 `.spec.ts`도 잡기 때문에, 분리해두지 않으면 vitest가 dev 서버 없이 Playwright 스펙을 실행하려다 실패한다).
+
+### 실행 결과
+
+```
+pnpm run typecheck → 통과 (e2e/도 함께 검사)
+pnpm run test        → 91 passed (e2e/와 충돌 없음 확인)
+pnpm exec next build → 성공
+pnpm run test:e2e     → 1 passed (2.1분, 실제 Chromium으로 채팅→렌더링→다운로드 전체 흐름)
+```
+
+### 사용한 AI 도구/기능
+
+| 도구 | 용도 |
+|---|---|
+| AskUserQuestion | "Playwright E2E vs 실제 음악 API" 중 어느 걸 먼저 할지 위임 |
+| Read(UI 소스 여러 개 병렬) | 실제 버튼/링크 텍스트, 상태 전이 조건을 코드에서 직접 확인한 뒤 셀렉터 설계 |
+| Bash(pnpm run test:e2e 반복 실행) | 실패 메시지와 트레이스를 근거로 셀렉터/타이밍 문제를 하나씩 실측 수정 |
+
+### 겪은 이슈
+
+- **`getByRole`의 기본 부분 문자열 매칭이 함정이었다**: "승인"과 "✓ 승인됨 (취소)"처럼 한쪽이 다른 쪽을 포함하는 텍스트가 있으면 `exact: true` 없이는 구분이 안 된다는 걸 무한 루프로 직접 겪고 알았다.
+- **Next.js 클라이언트 사이드 라우팅은 Playwright의 기본 "네비게이션 대기"를 우회할 수 있다**: `<Link>` 클릭이 풀 페이지 로드가 아니라 SPA 전환이라, `count()`처럼 즉시 값을 반환하는 API는 전환이 끝나기 전 상태를 읽을 수 있다 — 자동 재시도가 있는 `expect(...).toHaveCount()` 같은 assertion을 쓰는 게 안전하다는 걸 확인했다.
+
+### 왜 이렇게 결정했나
+
+근거는 [DECISIONS.md](./DECISIONS.md) ADR-023 참고.
+
+---
+
 <!-- 다음 작업 섹션은 아래에 이어서 추가됩니다 -->
